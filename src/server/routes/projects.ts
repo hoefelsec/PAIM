@@ -14,6 +14,7 @@ import {
   updateProject,
   type ProjectStatusFilter,
 } from "../db/projects.js";
+import { invalidateValidator } from "../fields/validator.js";
 import { defaultSettings } from "../projects/defaults.js";
 import { isValidSlug, slugify, uniqueSlug } from "../projects/slug.js";
 import { applyProjectPatch, asObject, type ProjectSettings } from "../projects/validate.js";
@@ -199,6 +200,9 @@ export async function projectRoutes(
       deleteProject(db, project.id);
     });
     removeAll();
+    // docs/03 "Validation cache": a deleted project must clear its cache
+    // entry, so a later project with the same slug never inherits it.
+    invalidateValidator(project.id);
 
     return { data: { id: project.id, slug: project.slug, deleted: true, tasks: taskCount } };
   });

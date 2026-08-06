@@ -2,6 +2,7 @@ import type Database from "better-sqlite3";
 import type { FastifyInstance, FastifyPluginOptions } from "fastify";
 import { updateProject } from "../db/projects.js";
 import { applySchemaWrite, schemaView } from "../fields/schema.js";
+import { invalidateValidator } from "../fields/validator.js";
 import { requireProject } from "./projects.js";
 import type { Project } from "../../shared/types.js";
 
@@ -36,6 +37,9 @@ export async function schemaRoutes(
       updatedAt: new Date().toISOString(),
     };
     updateProject(db, next);
+    // docs/03 "Validation cache": a schema write invalidates the compiled
+    // Zod schema so the next validation reflects the new fieldSchema.
+    invalidateValidator(next.id);
 
     return { data: schemaBody(next), warnings };
   });

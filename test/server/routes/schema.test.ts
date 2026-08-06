@@ -8,6 +8,7 @@ import { createApp } from "../../../src/server/app.js";
 import { openDatabase } from "../../../src/server/db/index.js";
 import { getProjectBySlug } from "../../../src/server/db/projects.js";
 import { columnFields, facetFields } from "../../../src/server/fields/schema.js";
+import { getValidator } from "../../../src/server/fields/validator.js";
 import { readFields, resolveFieldWrite } from "../../../src/server/fields/values.js";
 import { DEFAULT_STATUSES } from "../../../src/shared/statuses.js";
 import type { FieldDef, FieldDefView } from "../../../src/shared/fields.js";
@@ -179,6 +180,16 @@ describe("POST /api/projects/:project/schema", () => {
     await postSchema({ fields: [{ key: "layer", type: "text" }] });
 
     expect(getProjectBySlug(db, "paim")!.updatedAt >= before).toBe(true);
+  });
+
+  it("invalidates the project's cached validator (docs/03 validation cache)", async () => {
+    const projectId = getProjectBySlug(db, "paim")!.id;
+    const before = getValidator(projectId, stored());
+
+    await postSchema({ fields: [{ key: "layer", type: "text" }] });
+
+    const after = getValidator(projectId, stored());
+    expect(after).not.toBe(before);
   });
 });
 

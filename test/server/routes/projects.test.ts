@@ -6,6 +6,7 @@ import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../../src/server/app.js";
 import { openDatabase } from "../../../src/server/db/index.js";
+import { clearValidatorCache, getValidator } from "../../../src/server/fields/validator.js";
 import { clearVersionCache } from "../../../src/server/projects/version.js";
 import { STATUS_CATALOGUE } from "../../../src/shared/statuses.js";
 import type { Project, ProjectView } from "../../../src/shared/types.js";
@@ -21,6 +22,7 @@ beforeEach(() => {
   db = openDatabase(join(dir, "paim.db"));
   app = createApp({ db });
   clearVersionCache();
+  clearValidatorCache();
 });
 
 afterEach(async () => {
@@ -662,6 +664,30 @@ describe("DELETE /api/projects/:project", () => {
     const recreated = await createProject({ name: "PAIM" });
 
     expect(recreated.slug).toBe("paim");
+  });
+
+  it("invalidates the deleted project's cached validator (docs/03 validation cache)", async () => {
+    const project = await createProject({ name: "PAIM" });
+    const before = getValidator(project.id, [{ key: "layer", type: "text" }]);
+
+    await del("paim");
+
+    // The cache entry for this id must be gone: asking again with a
+    // different schema must not return the stale, pre-delete object.
+    const after = getValidator(project.id, [{ key: "estimate", type: "number" }]);
+    expect(after).not.toBe(before);
+  });
+
+  it("a recreated project with the same slug never inherits the old schema", async () => {
+    const original = await createProject({ name: "PAIM" });
+    getValidator(original.id, [{ key: "layer", type: "select", options: ["frontend"] }]);
+    await del("paim");
+
+    const recreated = await createProject({ name: "PAIM" });
+    // A fresh id gets a fresh cache entry, built from its own (empty) schema.
+    const validator = getValidator(recreated.id, recreated.fieldSchema ?? []);
+    expect(validator.safeParse({ layer: "frontend" }).success).toBe(true); // passthrough, unknown key
+    expect(recreated.id).not.toBe(original.id);
   });
 
   it("returns 404 for an unknown project", async () => {
