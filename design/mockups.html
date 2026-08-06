@@ -787,7 +787,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       <p><strong>Safety is a floor and three modes.</strong> The floor is a two-entry deny list — <code>rm -rf /</code> and <code>git push --force</code> — which applies in every mode <em>including Allow everything</em> and is the one thing a task cannot override. Above it: allow everything · ask everything · ask for listed actions, set per project and overridable per task.</p>
       <p>Deny and ask are different mechanisms rather than two strengths of one. The ask list is a tripwire — <em>stop and show me</em> — answered in the moment, run continues either way. The deny list is a refusal with <strong>no approve-anyway button</strong>; to run a denied command you edit the list in settings. That friction is the feature: it moves the decision out of a 1am approval prompt, where a mis-click costs a filesystem, and into a deliberate act with the pattern in front of you.</p>
       <p>A denial doesn't kill the run, though — that would just make people disable the list to get work done. The refusal goes back to <em>the model</em> with its reason, so it adapts. The Run tab shows exactly that: a force-push refused, and the non-forced push it proposed instead, which then asks. Workspace confinement sits underneath all of it and is not a setting at all.</p>
-      <p><strong>There is a way back, and it is narrower than "undo".</strong> Earlier revisions of this document said flatly that nothing rolls back; that was too absolute. Every run now captures a restore point first — git-backed where it can be, file snapshots otherwise — and <strong>Restore</strong> rewinds the workspace while the task is unfinished, disappearing once it's done, because at that point the changes are the deliverable. What it can't reach is stated where it matters rather than in small print: the <code>npm install</code> row on the Run tab says so on its own line, and the cancel dialog now offers <em>Cancel &amp; restore</em> against <em>Cancel, keep changes</em> and names the side effect neither can undo. A user who believes they've undone a push has not undone a push, and that is the one failure this feature must not have.</p>
+      <p><strong>There is a way back, and it is narrower than "undo".</strong> Every run captures a restore point first — git-backed where it can be, file snapshots otherwise — and <strong>Restore</strong> rewinds the workspace while the task is unfinished, disappearing once it's done, because at that point the changes are the deliverable. What it can't reach is stated where it matters rather than in small print: the <code>npm install</code> row on the Run tab says so on its own line, and the cancel dialog now offers <em>Cancel &amp; restore</em> against <em>Cancel, keep changes</em> and names the side effect neither can undo. A user who believes they've undone a push has not undone a push, and that is the one failure this feature must not have.</p>
       <p>Approval is <strong>as you go</strong>, not plan-first — the agent works and each operation that needs you stops when it comes up, because a plan composed before the model has read any files is mostly guesswork. The dry-run toggle covers the case where you do want the plan: it runs normally, shows every operation and diff, and applies none of them. Default policy is <em>ask everything</em>; loosen it per project once you trust the shape of the work.</p>
     </div>
   </section>
@@ -807,7 +807,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
     <div class="sec-head prose">
       <p class="eyebrow">Lifecycle</p>
       <h2>Statuses the system acts on</h2>
-      <p><strong>This reverses an earlier decision.</strong> Statuses started fully custom per project — arbitrary keys, arbitrary labels. They can't be, because the tool now <em>does</em> something at each one: it asks the questions, runs the tests, performs the review. A status the system has to implement behaviour for cannot be a string the user invents. So there's one predefined catalogue, and a project picks which stages apply. Order is fixed — you can skip <code>testing</code>, you can't put it before <code>executing</code>.</p>
+      <p><strong>Statuses are predefined, not per-project custom.</strong> They can't be custom, because the tool now <em>does</em> something at each one: it asks the questions, runs the tests, performs the review. A status the system has to implement behaviour for cannot be a string the user invents. So there's one predefined catalogue, and a project picks which stages apply. Order is fixed — you can skip <code>testing</code>, you can't put it before <code>executing</code>.</p>
       <p>Four of them are gates, and each is a different answer to "why isn't this done yet". <strong>Open questions</strong> is Claude admitting it can't infer something rather than guessing and being confidently wrong. <strong>Design</strong> catches decisions that are cheap now and expensive once code exists — and Claude, not the button click, decides when the direction is unambiguous. <strong>Testing</strong> runs the project's regression suite plus whatever the task added. <strong>Review</strong> is Claude inspecting its own work by opening the app, then — if the project wants it — briefing you to inspect it yourself.</p>
       <p><strong>Every gate fails backwards to Executing</strong>, carrying its reason as the next run's brief: the failing test output, the review's objection. Forward movement requires clearing the gate, with no manual override, because a gate you can wave past is a gate nobody trusts.</p>
       <p>Two things keep the pipeline from going stale. <strong>Dependencies</strong> are detected when the task is drafted and block running — you can still queue a blocked task, since forbidding that means babysitting the queue, but the queue stops it when its turn comes and names the unfinished dependency rather than starting work whose premise isn't true. And <strong>re-evaluation</strong> re-reads your original prompt against the project as it is now, reconsidering description, size, priority and dependencies — up to concluding the task isn't needed any more. It's suggested, never automatic: when a dependency lands, when questions get answered, when enough has changed underneath. The tool keeps <code>sourcePrompt</code> for exactly this, and silently rewriting what you wrote would be worse than letting it drift.</p>
@@ -1090,10 +1090,10 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
 
   <section>
     <div class="sec-head prose">
-      <p class="eyebrow">Before code</p>
-      <h2>Nothing still open</h2>
-      <p>None outstanding. Two earlier decisions were <strong>reversed</strong> this revision, both because the thing they described grew: statuses went from per-project custom to a predefined pipeline (the system now acts on them), and the task detail went from slide-over panel to a full tabbed view (430px can't hold a test results table honestly). Settled across the last three revisions: approve-as-you-go with a dry-run toggle · ask-everything by default · 33px rows, one density · a two-entry deny list · <code>size</code> replacing <code>effort</code> as <code>XS</code>–<code>Epic</code>, which dissolved the range-facet question and made epics fall out of a field value · model and effort shown as one value · priority, type and difficulty as icons · suggested order · pause-on-cap with auto-resume · scheduled runs · one run at a time, project-configurable · orchestrator concurrency project-defined · epics auto-completing when their last child does.</p>
-      <p>The next thing I'd build is the design system itself — tokens, then the component library, then these screens against mock data — which is the milestone you picked at the start. Say the word and I'll start on it.</p>
+      <p class="eyebrow">Open questions</p>
+      <h2>Twelve decisions remain</h2>
+      <p>The specification is complete enough to build from, but twelve choices are still unmade — thresholds, formats, and one genuine contradiction. They are written up with options and a recommendation in <code>docs/15-open-questions.md</code>.</p>
+      <p>The contradiction is worth naming here. <code>maxConcurrentRuns</code> defaults to 1 because two agents in one workspace overwrite each other's files. <code>maxOrchestratorWorkers</code> also defaults to 1, but raising it puts several agents in that same workspace — which is the exact situation the first setting exists to prevent. Two numbers describe one constraint. The recommendation is to keep one.</p>
     </div>
   </section>
 
@@ -1953,15 +1953,16 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
   }
 
   /* ── project settings ────────────────────────────── */
-  function snav(){
+  function snav(active){
+    active = active || 'Safety';
     var items=['General','Git','Pipeline','Tests','Concurrency','Safety',
                'Custom fields','Models &amp; routing','Usage limits','Schedules'];
     return '<div class="rail">'
       + '<div class="facet-head" style="cursor:default"><span class="caret">&#9662;</span>Settings'
       +   '<span class="src">task-manager</span></div>'
       + '<div class="snav">'
-      +   items.map(function(i,n){ return '<a href="#"'+(n<3?'':'')+
-          (i==='Safety'?' class="on"':'')+'>'+i+'</a>'; }).join('')
+      +   items.map(function(i){ return '<a href="#"'+(i===active?' class="on"':'')+'>'
+          +i+'</a>'; }).join('')
       +   '<a href="#" class="danger">Danger zone</a>'
       + '</div></div>';
   }
@@ -2059,6 +2060,93 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       + '</div></div>';
   }
 
+  /* ── field editor (a settings section of its own) ──
+     Two toggles per field: Column puts it in the table, Facet puts it in the
+     rail. What you slice by and what you scan by are not the same list.     */
+  function fieldRow(key,type,opts,column,facetOn,o){
+    o = o||{};
+    return '<div class="fieldrow'+(o.core?' core':'')+'"'
+      + (o.dim?' style="opacity:.5"':'')+'>'
+      + '<span class="handle">&#10287;</span><span class="fkey">'+key+'</span>'
+      + '<span class="ftype">'+type+'</span><span class="fopts">'+opts+'</span>'
+      + '<span style="display:flex;gap:10px">'
+      +   '<span class="toggle'+(column?' on':'')+'"></span>'
+      +   '<span class="toggle'+(facetOn?' on':'')+'"></span></span>'
+      + '<span class="handle">&#8943;</span></div>';
+  }
+  function settings(){
+    var muted = function(s){ return '<span style="color:var(--tx-muted)">'+s+'</span>'; };
+    var pills = function(a){ return a.map(function(x){
+      return '<span class="pill">'+x+'</span>'; }).join(' '); };
+    return '<div class="settings">'
+      + '<div><h3>Core fields</h3><p style="font-size:12.5px;color:var(--tx-muted);'
+      +   'margin:0 0 11px">Present in every workspace and every API response. '
+      +   'Not removable.</p>'
+      +   '<div style="display:flex;flex-direction:column;gap:5px">'
+      +   fieldRow('title','text',muted('Required'),true,false,{core:true})
+      +   fieldRow('status','select',muted('From the project pipeline'),true,true,{core:true})
+      +   fieldRow('priority','select',muted('none · low · medium · high · urgent'),
+                   true,true,{core:true})
+      +   fieldRow('size','select',pills(['XS','S','M','L','XL','Epic']),true,true,{core:true})
+      +   '</div></div>'
+      + '<div><h3>Custom fields</h3><p style="font-size:12.5px;color:var(--tx-muted);'
+      +   'margin:0 0 5px">Specific to this workspace. Adding is always safe; removing '
+      +   'hides the field but keeps the data.</p>'
+      +   '<p style="font-size:11.5px;color:var(--tx-muted);margin:0 0 11px">'
+      +     '<code>size</code> is core because <code>Epic</code> changes what the task '
+      +     '<em>is</em>. A field that does that can&rsquo;t be optional per project.</p>'
+      +   '<div style="display:flex;flex-direction:column;gap:5px">'
+      +   fieldRow('type','select',pills(['feature','bug','chore','spike']),true,true)
+      +   fieldRow('difficulty','select',pills(['trivial','easy','moderate','hard']),true,true)
+      +   fieldRow('layer','select',pills(['api','ui','storage']),false,true)
+      +   fieldRow('spike','checkbox',muted('Hidden · 4 tasks still hold a value'),
+                   false,false,{dim:true})
+      +   '<div class="addrow">+ Add field</div>'
+      +   '</div>'
+      +   '<p style="font-size:11.5px;color:var(--tx-muted);margin:11px 0 0;display:flex;'
+      +     'gap:16px;align-items:center">'
+      +     '<span style="display:flex;gap:7px;align-items:center">'
+      +       '<span class="toggle on" style="transform:scale(.8)"></span> Table column</span>'
+      +     '<span style="display:flex;gap:7px;align-items:center">'
+      +       '<span class="toggle on" style="transform:scale(.8)"></span> Filter facet</span>'
+      +   '</p>'
+      + '</div></div>';
+  }
+
+  /* ── project grid (root, no rail) ────────────────── */
+  function pcard(p,desc,pct,done,ago){
+    return '<div class="pcard"><div class="top">'+tile(p)+'<h5>'+p.nm+'</h5></div>'
+      + '<p class="sub">'+desc+'</p>'
+      + '<div class="meter"><i style="width:'+pct+'%;background:'+p.hex+'"></i></div>'
+      + '<div class="stats"><b>'+p.open+'</b> open<span>·</span>'+done+' done'
+      + '<span class="ago">'+ago+'</span></div></div>';
+  }
+  function home(){
+    return '<div class="home"><div class="home-head"><h4>Projects</h4>'
+      + '<p>84 open across 5 active · 7 archived</p>'
+      + '<span class="btn" style="margin-left:auto">New project '
+      +   '<span class="kbd">&#8984;N</span></span></div>'
+      + '<div class="pgrid">'
+      + pcard(PROJECTS[0],'Local-first task service. REST API plus HTML UI on one port.',
+              39,11,'18m ago')
+      + pcard(PROJECTS[1],'NAS, backups, Tailscale mesh, and the Proxmox rebuild.',
+              71,22,'yesterday')
+      + pcard(PROJECTS[2],'Rewrite, case studies, and the writing section that never ships.',
+              88,31,'3d ago')
+      + pcard(PROJECTS[3],'Client security briefings — research, drafts, and review cycles.',
+              29,9,'2h ago')
+      + pcard(PROJECTS[4],'Papers, specs, and long-form. Filed by agent, triaged by hand.',
+              18,7,'6h ago')
+      + '<div class="pcard" style="border-style:dashed;background:transparent;'
+      +   'justify-content:center;align-items:center;color:var(--tx-muted);'
+      +   'font-size:12.5px">+ New project</div>'
+      + '</div>'
+      + '<div class="arch"><span>&#8250;</span> Archived '
+      +   '<span style="color:var(--bd-strong)">7</span>'
+      + '<span style="margin-left:auto;font-size:12px">Still readable over the API</span>'
+      + '</div></div>';
+  }
+
   /* ── frame assembly ──────────────────────────────── */
   function frame(url,inner,cls,dk){
     return '<div class="frame"><div class="chrome">'
@@ -2120,9 +2208,10 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
                 taskView('review','Manual review','rev',tvCodeReview(),
                   {sideStatus:'Manual review'})),
     home:     frame('/', home(), 'nosidebar', dock(false)),
-    fields:   withRail('/p/task-manager/settings/fields',
-                '<div class="toolbar"><div class="seg"><span class="on">Fields</span><span>Statuses</span>'
-                + '<span>General</span><span>Danger</span></div></div>' + settings()),
+    /* The field editor is a settings section, so it uses the settings rail. */
+    fields:   frame('/p/task-manager/settings/fields',
+                '<aside class="side">'+wsButton()+docsBtn(false)+snav('Custom fields')+'</aside>'
+                + '<div class="main">'+settings()+'</div>', '', dock(false)),
     settings: settingsScreen()
   };
 
