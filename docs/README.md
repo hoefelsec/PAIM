@@ -1,8 +1,8 @@
-# Task Manager — specification index
+# PAIM — specification index
 
-Task Manager is a local task service. It runs one process on `localhost`. It
-gives a REST API to other programs and an HTML interface to the user. It uses
-Claude to write tasks and to do the work in those tasks.
+PAIM is the Project AI Manager. It is a local task service. It runs one process
+on `localhost`. It gives a REST API to other programs and an HTML interface to
+the user. It uses Claude to write tasks and to do the work in those tasks.
 
 ## How to read these documents
 
@@ -47,6 +47,7 @@ Use these terms. Do not use other terms for the same thing.
 
 | Term | Definition |
 |---|---|
+| **PAIM** | The name of this service. It is short for Project AI Manager. |
 | **project** | A container for tasks. It has a name, a slug, and settings. |
 | **workspace** | The project that the interface shows. The user selects one project at a time. |
 | **workspace path** | The directory on disk that a project controls. Runs and docs use only this directory. |
@@ -61,12 +62,12 @@ Use these terms. Do not use other terms for the same thing.
 | **pipeline** | The list of statuses that a project uses. |
 | **run** | One execution of a task by Claude. |
 | **operation** | One action in a run. Examples: read a file, write a file, run a command. |
-| **orchestrator** | The agent that runs an epic. It starts one agent for each child task. |
+| **orchestrator** | The scheduler that runs an epic. It starts one agent for each child task, in dependency order. It is not a model. |
 | **restore point** | The state of the workspace path before a run starts. |
 | **facet** | A filter control in the left rail. |
 | **view** | A saved set of filters, sort, group, and columns. |
 | **dock** | The pane at the bottom of the window. It lists all runs in all projects. |
-| **cap** | A usage limit that the user sets. It is below the hard limit. |
+| **cap** | A token budget that the user sets for one project and one window. |
 
 ## Terms to avoid
 

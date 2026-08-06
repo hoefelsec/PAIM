@@ -37,14 +37,14 @@ The switcher menu contains:
 
 ```
 ┌──────────────┬──────────────────────────────────────────────┐
-│ ◈ Task Mgr ⌄ │ v0.4.2 · 28 · 17 open   5h ▓▓▒ Wk ▓▓▓▒ F ▓  │ stats band
+│ ◈ PAIM     ⌄ │ v0.4.2 · 28 · 17 open   5h ▓▓▒ Wk ▓▓▓▒ F ▓  │ stats band
 │   17 open    ├──────────────────────────────────────────────┤
 ├──────────────┤ Open work ⌄ │ 8 of 28 · Sort · Group · Save  │ toolbar
 │ ▤ Docs    12 ├──────────────────────────────────────────────┤
-├──────────────┤ KEY  TITLE            PRIO TYPE DIFF SIZE     │
+├──────────────┤ KEY  TITLE            PRIO TYPE SIZE          │
 │ ⌕ Search   / │ ▾ Executing 3                                 │
-│ ▾ STATUS     │ TM-4  Table view…      ▮▮  ☆   ●●●○  M        │
-│   ☑ Ready  5 │ TM-3  Field schema…    ▮▮  ☆   ●●●●  L        │
+│ ▾ STATUS     │ FEAT-4  Table view…    ▮▮  ☆   ●●●○○          │
+│   ☑ Ready  5 │ BUG-3   Field schema…  ▮▮  ☆   ●●●●○          │
 │ ▾ TYPE       │                                               │
 │ Clear all  2 │                                               │
 ├──────────────┴──────────────────────────────────────────────┤
@@ -91,22 +91,23 @@ The table is the only view. There is no board and no list view.
 
 ### Columns
 
-`Key`, `Title`, `Prio`, `Type`, `Diff`, `Size`, `Updated`. Custom fields with
+`Key`, `Title`, `Prio`, `Type`, `Size`, `Updated`. Custom fields with
 `showInTable` add columns.
 
 ### Icons instead of text
 
-`priority`, `type`, and `difficulty` are icons. The name appears when the
+`priority`, `type`, and `size` are icons. The name appears when the
 pointer is over the icon. The column head names the dimension, so the row does
 not repeat it.
 
 Two scales use different shapes:
 
 - **Priority** grows in bar **height**.
-- **Difficulty** fills in dot **count**. Empty steps are rings. Filled steps are
-  discs.
+- **Size** fills in dot **count**. Empty steps are rings. Filled steps are
+  discs. `Epic` has its own mark.
 
-**Type** is not a scale. Each value has a different silhouette.
+**Type** is not a scale. Each pool option has a different silhouette. See
+[03 — Custom fields](03-custom-fields.md).
 
 ### Epics in the table
 
@@ -121,11 +122,12 @@ The band is at the top of the main pane. It appears on all workspace screens.
 
 - **Left:** the project version, the total count of tasks, the count of open
   tasks, and the count of closed tasks.
-- **Right:** three usage meters. Each meter has a cap marker. See
+- **Right:** three usage meters. Each meter shows the metered spend of the
+  project against its cap. See
   [11 — Models and limits](11-models-and-limits.md).
 
-The band is one row of about 44 pixels. It expands to show the reset times and
-to move the cap markers.
+The band is one row of about 44 pixels. It expands to show the window end times
+and to change the caps.
 
 The meters are the only warning. The service shows no banner and no toast when
 a cap is reached.
@@ -182,14 +184,14 @@ The tab order is the pipeline order. Therefore the tab row also shows progress.
 A tab appears only when the project's pipeline includes that stage. A project
 without `testing` has no Tests tab.
 
-The right column holds the properties: status, priority, size, type,
-difficulty, custom fields, model, dependencies, and schedule.
+The right column holds the properties: status, priority, size, type, custom
+fields, model, dependencies, and schedule.
 
 The **Review** tab has three sub-tabs:
 
 | Sub-tab | Content |
 |---|---|
-| AI review | The verdict, the reason, and the views that Claude opened. |
+| AI review | The verdict and the reason. |
 | Code review | The difference of all files that the task changed, across all runs. |
 | Manual review | The summary, the list of checks, and the entry point. |
 
@@ -250,7 +252,8 @@ The dock collapses to one row of about 30 pixels.
   with the response. A rejected write makes the row flash and then returns to
   the previous value.
 - **Server-Sent Events** keep the interface current. Other programs write to the
-  same store, so the interface must not show old data.
+  same store, so the interface must not show old data. The interface subscribes
+  to `GET /api/events`. See [06 — REST API](06-rest-api.md).
 
 ## Keyboard
 

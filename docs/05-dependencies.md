@@ -48,7 +48,7 @@ the project. It reconsiders these values:
 - description
 - size
 - priority
-- difficulty and other custom fields
+- the custom fields
 - dependencies
 
 Re-evaluation can also report that the task is no longer necessary.

@@ -1,8 +1,8 @@
-# Task Manager
+# PAIM — Project AI Manager
 
-A local task service. One process on `localhost` serves a REST API to other
-programs and an HTML interface to the user. It uses Claude to write tasks and to
-do the work in those tasks.
+PAIM is a local task service. One process on `localhost` serves a REST API to
+other programs and an HTML interface to the user. It uses Claude to write tasks
+and to do the work in those tasks.
 
 ## Specification
 

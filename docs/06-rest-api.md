@@ -3,6 +3,24 @@
 Base path: `http://localhost:4400/api`. All requests and responses use JSON. The
 project slug identifies the project in the path.
 
+## Access
+
+The service listens on `127.0.0.1:4400`. Only a program on this machine can
+reach it. There is no token and no login.
+
+Every request must satisfy three header rules:
+
+| Header | Rule |
+|---|---|
+| `Host` | `localhost:4400` or `127.0.0.1:4400` |
+| `Origin` | Absent, or `http://localhost:4400`, or `http://127.0.0.1:4400` |
+| `Content-Type` | `application/json` on every request that has a body |
+
+A request that breaks a rule gets `403` with the code `ORIGIN_REJECTED`. A
+script that sends no `Origin` header always passes. These rules keep a web page
+in the browser away from the API. See
+[10 — Execution safety](10-execution-safety.md).
+
 ## Response format
 
 Every list response uses this envelope:
@@ -46,14 +64,14 @@ POST   /api/projects/:project/trash/:key    restore a task from the trash
 POST   /api/projects/:project/tasks/bulk    { ids[], patch{} }
 ```
 
-`:key` accepts the task key, for example `TM-14`, or the UUID.
+`:key` accepts the task key, for example `FEAT-14`, or the UUID.
 
 ### Query parameters for the list
 
 ```
 status=ready,executing        open=true              priority=high,urgent
-label=backend                 assignee=edu           parent=TM-3
-size=M,L                      field.difficulty=hard  q=free text
+label=backend                 assignee=edu           parent=FEAT-3
+size=M,L                      field.layer=backend    q=free text
 updatedSince=<ISO-8601>       sort=-updatedAt,order  limit=50&cursor=…
 include=children,comments
 ```
@@ -67,6 +85,22 @@ merge on the `fields` object.
 - To clear a value, send `null` for that key.
 - Send the header `If-Match` with the value of `updatedAt` for a
   compare-and-swap update. Without the header, the last write wins.
+
+## Gates
+
+These endpoints answer the gates of the pipeline. See
+[04 — Status pipeline](04-status-pipeline.md).
+
+```
+POST /api/projects/:project/tasks/:key/answers       { answers: [{ questionId, answer }] }
+POST /api/projects/:project/tasks/:key/design-reply  { optionId } or { text }
+POST /api/projects/:project/tasks/:key/review        { verdict, note }
+POST /api/projects/:project/tasks/:key/re-evaluate   start a re-evaluation
+```
+
+`review` records the verdict of the user for `manual_review`. `re-evaluate`
+reads `sourcePrompt` against the current project state and returns a draft. See
+[05 — Dependencies and re-evaluation](05-dependencies.md).
 
 ## Cross-project
 
@@ -110,12 +144,21 @@ POST   /api/runs/:run/restore                   revert the workspace
 ## Activity and usage
 
 ```
+GET  /api/events                    Server-Sent Events: all data changes
 GET  /api/activity                  all runs in all projects
 GET  /api/activity/stream           Server-Sent Events
-GET  /api/usage                     the three usage windows
+GET  /api/usage                     the metered spend in the three windows, per project
 GET  /api/projects/:project/caps
-PUT  /api/projects/:project/caps    { fiveHour: 70, weekly: 85, fable: 50 }
+PUT  /api/projects/:project/caps    { fiveHour: 2000000, weekly: 10000000, fable: 2000000 }
 ```
+
+### The events stream
+
+`GET /api/events` is one stream of all data changes: tasks, projects, schemas,
+and saved views. Each event names the record type, the record id, and the kind
+of change: `created`, `updated`, or `deleted`. The interface subscribes once
+and stays current when other programs write to the store. Scripts can
+subscribe too.
 
 ## Schedules
 
@@ -139,6 +182,7 @@ GET /api/projects/:project/docs/*path     one rendered file, or one asset
 | 200 | Success |
 | 201 | The service created a record |
 | 400 | The request is not valid |
+| 403 | `ORIGIN_REJECTED`. The request breaks a header rule. See "Access" above. |
 | 404 | The service did not find the record |
 | 409 | A conflict. Examples: `BUDGET_CAP_REACHED`, `DEPENDENCY_NOT_MET`, `IF_MATCH_FAILED` |
 | 422 | The request is valid but the service cannot process it |

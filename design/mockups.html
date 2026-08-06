@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<title>Task Manager — Design Language &amp; Mockups</title>
+<title>PAIM — Design Language &amp; Mockups</title>
 
 <style>
 :root{
@@ -538,10 +538,10 @@ thead th.c,tbody td.icn{text-align:center}
 td.icn{white-space:nowrap}
 /* Hollow vs solid, not dim vs bright — at 5px a fill difference alone is
    unreadable, so unfilled steps are rings and filled ones are discs. */
-.diffdots{display:inline-flex;gap:3px;align-items:center;cursor:default}
-.diffdots i{width:5px;height:5px;border-radius:50%;display:block;
+.sizedots{display:inline-flex;gap:3px;align-items:center;cursor:default}
+.sizedots i{width:5px;height:5px;border-radius:50%;display:block;
   border:1px solid var(--bd-strong);box-sizing:border-box}
-.diffdots i.on{background:var(--tx-secondary);border-color:var(--tx-secondary)}
+.sizedots i.on{background:var(--tx-secondary);border-color:var(--tx-secondary)}
 .tyicon{display:inline-flex;color:var(--tx-secondary);cursor:default;vertical-align:-2px}
 tr.task:hover .tyicon{color:var(--tx-primary)}
 .bars{cursor:default}
@@ -601,9 +601,173 @@ tr.task.child td.title{color:var(--tx-secondary)}
 .arow.epicrun{background:rgba(111,168,206,.05)}
 .arow.held{background:rgba(203,111,99,.05)}
 .arow.held .t{color:var(--tx-secondary)}
-.held{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:#C79B95;
+.heldnote{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:#C79B95;
   white-space:nowrap}
 .tile{width:17px;height:17px;border-radius:4px;display:grid;place-items:center;font-size:10px;flex:none}
+
+/* ── task view (full, tabbed) ────────────────────────── */
+.tv{display:flex;flex-direction:column;min-height:0}
+.tv-head{padding:16px 20px 0;display:flex;flex-direction:column;gap:11px}
+.tv-crumb{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--tx-muted)}
+.tv-crumb .k{font-family:var(--font-mono);font-size:11px}
+.tv-title{display:flex;align-items:flex-start;gap:12px}
+.tv-title h4{margin:0;font-size:19px;font-weight:600;color:var(--tx-primary);
+  letter-spacing:-.015em;line-height:1.3}
+.tv-title .btn{margin-left:auto;flex:none}
+.statuspill{display:inline-flex;align-items:center;gap:7px;font-size:12px;
+  padding:3px 10px;border-radius:20px;background:var(--bg-raised);
+  color:var(--tx-primary);white-space:nowrap;flex:none}
+.statuspill.q{background:rgba(167,139,197,.14);color:#C0AAD8}
+.statuspill.des{background:rgba(95,163,155,.14);color:#7FBDB5}
+.statuspill.test{background:rgba(201,154,84,.14);color:var(--s-progress)}
+.statuspill.rev{background:rgba(111,168,206,.14);color:var(--ac-hover)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd-subtle);padding:0 20px;
+  margin-top:3px}
+.tabs a{padding:8px 12px 9px;font-size:12.5px;color:var(--tx-secondary);
+  border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;
+  align-items:center;gap:7px}
+.tabs a:hover{color:var(--tx-primary)}
+.tabs a.on{color:var(--tx-primary);border-bottom-color:var(--ac);font-weight:500}
+.tabs a em{font-style:normal;font-size:10px;font-variant-numeric:tabular-nums;
+  background:var(--bg-raised);border-radius:9px;padding:1px 6px;color:var(--tx-muted)}
+.tabs a.alert em{background:rgba(203,111,99,.18);color:#DBA49D}
+.tv-body{display:grid;grid-template-columns:1fr 244px;gap:0;min-height:0}
+.tv-main{padding:16px 20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.tv-side{border-left:1px solid var(--bd-subtle);padding:14px 16px;
+  display:flex;flex-direction:column;gap:13px}
+.sfield{display:flex;flex-direction:column;gap:5px}
+.sfield b{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--tx-muted);font-weight:500}
+.sfield > span{font-size:12.5px;color:var(--tx-primary);display:flex;
+  align-items:center;gap:7px;flex-wrap:wrap}
+.tv-desc{font-size:13px;color:var(--tx-body);line-height:1.65;margin:0}
+
+/* re-evaluate prompt */
+.stale{display:flex;align-items:flex-start;gap:10px;padding:11px 13px;
+  border:1px solid rgba(201,154,84,.28);background:rgba(201,154,84,.07);
+  border-radius:var(--r-ctl)}
+.stale .txt{flex:1;min-width:0;font-size:12.5px;color:#D6B98A;line-height:1.55}
+.stale .txt b{color:var(--tx-primary);font-weight:500;display:block;margin-bottom:2px}
+.stale .btn{flex:none;padding:5px 11px}
+
+/* dependencies */
+.deps{display:flex;flex-direction:column;gap:5px}
+.dep{display:flex;align-items:center;gap:8px;font-size:12px;padding:5px 9px;
+  background:var(--bg-raised);border:1px solid var(--bd-subtle);border-radius:var(--r-ctl)}
+.dep .k{font-family:var(--font-mono);font-size:10.5px;color:var(--tx-muted);
+  white-space:nowrap;flex:none}
+.dep .t{color:var(--tx-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dep .st{margin-left:auto;font-size:11px;white-space:nowrap}
+.dep.blocked{border-color:rgba(203,111,99,.28);background:rgba(203,111,99,.06)}
+.dep.blocked .st{color:#DBA49D}
+.dep.metdep .st{color:var(--s-done)}
+
+/* questions */
+.qitem{border:1px solid var(--bd-subtle);border-radius:var(--r-card);
+  background:var(--bg-surface);overflow:hidden}
+.qitem .qq{padding:12px 14px;font-size:13px;color:var(--tx-primary);line-height:1.55;
+  display:flex;gap:10px}
+.qitem .qn{font-family:var(--font-mono);font-size:10.5px;color:var(--ac);flex:none;
+  padding-top:2px}
+.qitem .qa{border-top:1px solid var(--bd-subtle);padding:10px 14px 10px 38px;
+  background:var(--bg-base)}
+.qchoices{display:flex;gap:6px;flex-wrap:wrap}
+.qchoice{font-size:12px;padding:5px 11px;border-radius:var(--r-ctl);
+  border:1px solid var(--bd-strong);color:var(--tx-secondary)}
+.qchoice:hover{border-color:var(--ac);color:var(--tx-primary)}
+.qchoice.picked{background:var(--ac-tint);border-color:var(--ac);color:var(--ac-hover)}
+.qinput{font-size:12.5px;color:var(--tx-muted);border:1px solid var(--bd-subtle);
+  border-radius:var(--r-ctl);padding:7px 10px;background:var(--bg-raised)}
+.qanswered{display:flex;gap:10px;font-size:12.5px;color:var(--tx-body);line-height:1.55}
+.qanswered .ok{color:var(--s-done);flex:none}
+
+/* design options */
+.dgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+.dopt{border:1px solid var(--bd-subtle);border-radius:var(--r-card);overflow:hidden;
+  background:var(--bg-surface);display:flex;flex-direction:column}
+.dopt.chosen{border-color:var(--ac);box-shadow:0 0 0 1px var(--ac)}
+.dopt .shot{height:104px;background:var(--bg-base);border-bottom:1px solid var(--bd-subtle);
+  display:grid;place-items:center;overflow:hidden}
+.dopt .meta{padding:9px 11px;display:flex;flex-direction:column;gap:4px;flex:1}
+.dopt .meta b{font-size:12.5px;color:var(--tx-primary);font-weight:500}
+.dopt .meta span{font-size:11.5px;color:var(--tx-muted);line-height:1.5}
+.dopt .pick{border-top:1px solid var(--bd-subtle);padding:7px;text-align:center;
+  font-size:12px;color:var(--tx-secondary)}
+.dopt.chosen .pick{background:var(--ac-tint);color:var(--ac-hover);font-weight:500}
+
+/* tests */
+.testtable{width:100%;border-collapse:collapse;font-size:12.5px;
+  border:1px solid var(--bd-subtle);border-radius:var(--r-card);overflow:hidden}
+.testtable th{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--tx-muted);font-weight:500;text-align:left;
+  padding:8px 12px;border-bottom:1px solid var(--bd-subtle)}
+.testtable td{padding:7px 12px;border-bottom:1px solid var(--bd-subtle);
+  color:var(--tx-secondary)}
+.testtable tr:last-child td{border-bottom:0}
+.testtable td.nm{color:var(--tx-primary);font-family:var(--font-mono);font-size:11.5px}
+.testtable td.ms{text-align:right;font-variant-numeric:tabular-nums;color:var(--tx-muted)}
+.tstat{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;white-space:nowrap}
+.tstat.pass{color:var(--s-done)}
+.tstat.fail{color:var(--p-urgent)}
+.tstat.skip{color:var(--tx-muted)}
+tr.failrow td{background:rgba(203,111,99,.06)}
+.failout{font-family:var(--font-mono);font-size:11px;line-height:1.65;color:#C79B95;
+  background:#140F0E;padding:9px 12px;white-space:pre;overflow-x:auto;
+  border:1px solid rgba(203,111,99,.2);border-radius:var(--r-ctl)}
+.testsum{display:flex;align-items:center;gap:14px;font-size:12.5px;color:var(--tx-secondary);
+  flex-wrap:wrap}
+.testsum b{color:var(--tx-primary);font-weight:600}
+
+/* run tab */
+.runbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.runmeta{font-size:12px;color:var(--tx-muted);font-variant-numeric:tabular-nums}
+.btn-restore{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;
+  font-weight:500;color:#D6B98A;border:1px solid rgba(201,154,84,.38);
+  background:rgba(201,154,84,.09);border-radius:var(--r-ctl);padding:5px 12px;flex:none}
+.btn-restore:hover{background:rgba(201,154,84,.16);color:var(--tx-primary)}
+.ops{display:flex;flex-direction:column;gap:8px}
+.runfoot{font-size:11.5px;color:var(--tx-muted);font-variant-numeric:tabular-nums}
+
+/* review sub-tabs */
+.subtabs{display:inline-flex;gap:2px;background:var(--bg-raised);padding:3px;
+  border-radius:8px;align-self:flex-start}
+.subtabs a{font-size:12px;padding:5px 12px;border-radius:5px;color:var(--tx-secondary)}
+.subtabs a:hover{color:var(--tx-primary)}
+.subtabs a.on{background:var(--bg-overlay);color:var(--tx-primary);font-weight:500;
+  box-shadow:0 1px 2px rgba(0,0,0,.3)}
+
+/* code review — per-file diffs */
+.dfile{border:1px solid var(--bd-subtle);border-radius:var(--r-card);overflow:hidden}
+.dfile-head{display:flex;align-items:center;gap:9px;padding:8px 12px;
+  background:var(--bg-surface);border-bottom:1px solid var(--bd-subtle)}
+.dfile-head .p{font-family:var(--font-mono);font-size:11.5px;color:var(--tx-primary)}
+.dfile-head .stat{margin-left:auto;display:flex;gap:8px;font-family:var(--font-mono);
+  font-size:10.5px}
+.dfile-head .stat em{font-style:normal}
+.dfile-head .stat .a{color:var(--s-done)}
+.dfile-head .stat .d{color:var(--p-urgent)}
+
+/* reviews */
+.verdict{display:flex;align-items:flex-start;gap:11px;padding:12px 14px;
+  border-radius:var(--r-card);border:1px solid var(--bd-subtle);background:var(--bg-surface)}
+.verdict.rejected{border-color:rgba(203,111,99,.3);background:rgba(203,111,99,.06)}
+.verdict.approved{border-color:rgba(111,165,124,.3);background:rgba(111,165,124,.06)}
+.verdict .vico{font-size:14px;flex:none;line-height:1.3}
+.verdict.rejected .vico{color:var(--p-urgent)}
+.verdict.approved .vico{color:var(--s-done)}
+.verdict .vtxt{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.verdict .vtxt b{font-size:13px;color:var(--tx-primary);font-weight:600}
+.verdict .vtxt p{margin:0;font-size:12.5px;color:var(--tx-body);line-height:1.6}
+.checklist{display:flex;flex-direction:column;gap:7px}
+.chk{display:flex;gap:10px;font-size:12.5px;color:var(--tx-body);line-height:1.55}
+.chk i{width:14px;height:14px;border:1px solid var(--bd-strong);border-radius:3px;
+  flex:none;margin-top:1px}
+.entrypoint{display:flex;align-items:center;gap:10px;padding:10px 12px;
+  background:var(--bg-raised);border:1px solid var(--bd-subtle);border-radius:var(--r-ctl)}
+.entrypoint code{flex:1;background:none;color:var(--tx-secondary);padding:0}
+.vactions{display:flex;gap:9px}
+.btn-ok{display:inline-flex;align-items:center;font-size:12.5px;font-weight:500;
+  background:#3D7A4E;color:#EFF8F1;border-radius:var(--r-ctl);padding:6px 13px}
 
 /* ── detail panel ────────────────────────────────────── */
 .scrim{position:absolute;inset:0;background:rgba(10,9,8,.55);z-index:4}
@@ -716,8 +880,8 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
 <div class="wrap">
   <header class="masthead">
     <p class="eyebrow">Design language &amp; screen mockups · rev K</p>
-    <h1>Task&nbsp;Manager</h1>
-    <p class="lede">An AI-first, local-first task service. One process on <code>localhost</code>: a REST API for your other services, an HTML UI for you, and Claude both writing tasks and <em>doing</em> them.</p>
+    <h1>PAIM</h1>
+    <p class="lede"><b>Project&nbsp;AI&nbsp;Manager</b> — an AI-first, local-first task service. One process on <code>localhost</code>: a REST API for your other services, an HTML UI for you, and Claude both writing tasks and <em>doing</em> them.</p>
     <div class="decisions">
       <div class="dec"><b>Storage</b><span>SQLite + JSON columns</span></div>
       <div class="dec"><b>Shell</b><span>Workspace + filter rail</span></div>
@@ -748,7 +912,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       <p class="eyebrow">Shell</p>
       <h2>One workspace at a time</h2>
       <p>A project is a <strong>workspace</strong>, not a sidebar item. Selecting one scopes the entire UI — every filter, every keyboard shortcut. You change it from the switcher in the top-left corner, the way you'd change workspace in Notion.</p>
-      <p>That frees the left rail for its real job: <strong>faceted filtering</strong>. Status, priority, type, difficulty, layer, labels — each a collapsible facet with live counts. And because <code>type</code> and <code>difficulty</code> are this project's custom fields while <code>status</code> and <code>priority</code> are core, the rail can't be hardcoded. It's generated from the same <code>fieldSchema</code> that drives the table columns: <strong>every <code>select</code> field becomes a facet automatically.</strong> Open a different workspace and the rail is different.</p>
+      <p>That frees the left rail for its real job: <strong>faceted filtering</strong>. Status, priority, size, type, layer, labels — each a collapsible facet with live counts. And because <code>type</code> and <code>layer</code> are this project's custom fields while <code>status</code>, <code>priority</code> and <code>size</code> are core, the rail can't be hardcoded. It's generated from the same <code>fieldSchema</code> that drives the table columns: <strong>every <code>select</code> field becomes a facet automatically.</strong> Open a different workspace and the rail is different.</p>
       <p>The split that follows is worth stating as a rule, because it settles a lot of small arguments later: <strong>the rail controls which tasks are in the set; the toolbar controls how that set is presented.</strong> Filtering lives left, view/sort/group live top. Nothing appears in both places.</p>
       <p><strong>Filters are ephemeral.</strong> They live in the URL, so a filtered view is shareable and the back button works, but they do not survive a workspace switch. A filter you forgot you set is indistinguishable from missing data. To keep one, press <strong>Save view</strong> — next to Sort and Group — which promotes the whole state (view, filters, sort, group, columns) to a stored record. When live state diverges from the selected view, the view name grows a dot and Save view turns accent.</p>
     </div>
@@ -759,10 +923,10 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       <p class="eyebrow">AI</p>
       <h2>Write it badly, then run it</h2>
       <p>Claude is not an assistant panel bolted to the side. It is how tasks get written and how they get done — two integrations with genuinely different shapes.</p>
-      <p><strong>Compose</strong> replaces the new-task form with a textbox. You describe the work however it comes out of your head; Claude maps it onto the workspace's schema and returns a <em>draft</em>. The mechanism is the nice part: the extraction schema is generated from the project's <code>fieldSchema</code> — the same source that validates API writes — so a workspace with <code>difficulty</code> gets difficulty extracted and one without it never sees the field. No per-project prompt engineering. Nothing is created until you press the button, and every inferred value is editable in place, because guessing wrong silently is worse than not guessing.</p>
+      <p><strong>Compose</strong> replaces the new-task form with a textbox. You describe the work however it comes out of your head; Claude maps it onto the workspace's schema and returns a <em>draft</em>. The mechanism is the nice part: the extraction schema is generated from the project's <code>fieldSchema</code> — the same source that validates API writes — so a workspace with <code>layer</code> gets layer extracted and one without it never sees the field. No per-project prompt engineering. Nothing is created until you press the button, and every inferred value is editable in place, because guessing wrong silently is worse than not guessing.</p>
       <p><strong>Run</strong> is the feature that changes what the product is. Everything else here is a task tracker; this makes it an execution surface. It's built on the <strong>Claude Agent SDK</strong> — Claude Code as a library — rather than a hand-rolled loop, because that package already ships the agent loop, the file and bash tools, and a permission callback that fires before every tool execution. Rebuilding those means rebuilding file editing, diffing, command execution and the approval gate, and getting all four right.</p>
       <p>Which is where the design work actually is. A model that can write files and run commands needs a boundary, and "it's all local anyway" stops being a sufficient answer the moment it can run <code>rm</code>. So: every project carries an absolute workspace path, and one without it has <strong>no Run button at all</strong>. Operations are classified by what they can do — reads auto-run, writes and commands meet the project's policy — and the risk class is the visual axis on the run screen. The workspace path sits in the run header where you can't miss it.</p>
-      <p><strong>Which model runs it is routed, not chosen.</strong> Every task carries a model and an effort, and both are normally inherited: you nominate one <code>select</code> field as the routing field and map its options — <code>trivial</code> → Haiku at low effort, <code>hard</code> → Opus at <code>xhigh</code>. Since <code>difficulty</code> is a custom field, routing couldn't be hardcoded to it without breaking the rule that holds everywhere else here: the schema drives the product, the product doesn't presume the schema. Either value can be pinned per task, and a pinned value looks different from an inherited one so you can tell at a glance.</p>
+      <p><strong>Which model runs it is routed, not chosen.</strong> Every task carries a model and an effort, and both are normally inherited: you nominate a routing field — <code>size</code>, or any <code>select</code> field — and map its values: <code>XS</code> → Haiku at low effort, <code>L</code> → Opus at <code>xhigh</code>. Routing isn't hardcoded to one field, because the rule that holds everywhere else here holds for it too: the schema drives the product, the product doesn't presume the schema. Either value can be pinned per task, and a pinned value looks different from an inherited one so you can tell at a glance.</p>
     </div>
   </section>
 
@@ -770,9 +934,9 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
     <div class="sec-head prose">
       <p class="eyebrow">Budget</p>
       <h2>Spending you can see, and stop</h2>
-      <p>A band across the top of the main pane carries what the project <em>is</em> on the left — version read live from the workspace, task counts — and what it is <em>costing</em> on the right: the three usage windows your Claude credentials carry. The 5-hour rolling window, the weekly allowance, and the separate allowance for Fable, the most capable tier.</p>
-      <p>Each bar ends at the hard limit and carries a <strong>draggable marker</strong>: a cap you set for yourself, somewhere below it. The point isn't to visualise consumption — it's to reserve headroom deliberately. You decide this project may burn 70% of the window and no more, so whatever else you do today still has room. <strong>Runs are blocked at your marker, not at the hard limit</strong>, with the reason and the reset time stated rather than a greyed-out button.</p>
-      <p>Two details that follow from taking that seriously. The Fable cap <strong>gates by routing</strong> — in the mockup Fable is over its cap, so tasks routed to <code>claude-fable-5</code> can't start while everything else runs normally, which is the whole reason the window is tracked separately. And a cap doesn't only block starting: it <strong>pauses a run already in flight</strong>, at the next operation boundary, and resumes it automatically when the window resets. Pausing isn't cancelling — completed operations stay applied, the agent keeps its context. In the dock, RCX-8 is sitting held for exactly that reason.</p>
+      <p>A band across the top of the main pane carries what the project <em>is</em> on the left — version read live from the workspace, task counts — and what it is <em>costing</em> on the right: three metered windows. The 5-hour window opens at the first run and closes five hours later; the weekly window runs Monday to Monday; Fable, the most capable tier, is tracked separately inside the week. The numbers are the service's own metering — every run records its tokens, and the meters read those records and nothing else. Whether the account-level Anthropic windows can be read at all is an open question in <code>docs/15</code>; nothing here depends on it.</p>
+      <p>Each bar fills toward a <strong>token budget you set per project</strong> — the cap. The point isn't to visualise consumption — it's to reserve headroom deliberately. You decide this project may burn two million tokens of the five-hour window and no more, so whatever else you do today still has room. <strong>Runs are blocked at your cap</strong>, with the reason and the window's end time stated rather than a greyed-out button.</p>
+      <p>Two details that follow from taking that seriously. The Fable cap <strong>gates by routing</strong> — in the mockup Fable is over its cap, so tasks routed to <code>claude-fable-5</code> can't start while everything else runs normally, which is the whole reason it's tracked separately. And a cap doesn't only block starting: it <strong>pauses a run already in flight</strong>, at the next operation boundary, and resumes it automatically when the window ends. Pausing isn't cancelling — completed operations stay applied, the agent keeps its context. In the dock, TASK-8 is sitting held for exactly that reason.</p>
       <p><strong>The bars are the whole notification.</strong> No banner, no toast. A meter that is visibly clay on every screen has already said it; a warning strip on top is the same fact twice, and the second copy is the one you learn to dismiss without reading.</p>
       <p>There's a second limit that isn't about money at all. <strong>One run at a time, per project</strong> — because every agent writes to the same filesystem, and two of them in one workspace will interleave edits and clobber each other with neither noticing. That's a correctness constraint, not a throughput setting, and the settings copy says so. Different projects have different workspace roots, so they run alongside each other freely, which is why the dock legitimately shows three at once.</p>
     </div>
@@ -782,13 +946,13 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
     <div class="sec-head prose">
       <p class="eyebrow">Control</p>
       <h2>Everything that's running, everywhere</h2>
-      <p>The activity dock spans the full width of the window — <em>under</em> the sidebar, not inside the main pane. That placement is the whole argument: the dock is <strong>global, not workspace-scoped</strong>. A run you kicked off in Homelab an hour ago is precisely the thing you'd forget about while heads-down in Task Manager, so it sits in the one strip that never changes when you switch workspace. It's also the only screen besides the project grid where several project colours appear together, which is what that identity palette exists for.</p>
+      <p>The activity dock spans the full width of the window — <em>under</em> the sidebar, not inside the main pane. That placement is the whole argument: the dock is <strong>global, not workspace-scoped</strong>. A run you kicked off in Homelab an hour ago is precisely the thing you'd forget about while heads-down in PAIM, so it sits in the one strip that never changes when you switch workspace. It's also the only screen besides the project grid where several project colours appear together, which is what that identity palette exists for.</p>
       <p>Two honesty problems worth solving rather than papering over. <strong>Progress</strong>: once the agent has declared a plan the bar is real — completed operations over planned, <code>4/6</code>. Before that there is no denominator that isn't invented, so the row shows an indeterminate shimmer labelled <em>planning</em>. A bar that makes up a percentage is worse than one that says it doesn't know yet. <strong>Cancel</strong>: cancelling doesn't roll back, so the confirmation's job isn't "are you sure" — it's naming the three files already changed and saying outright that they stay changed. Pause, meanwhile, stops at the next operation boundary and never mid-operation; a half-written file isn't a state worth being able to reach.</p>
-      <p><strong>Safety is a floor and three modes.</strong> The floor is a two-entry deny list — <code>rm -rf /</code> and <code>git push --force</code> — which applies in every mode <em>including Allow everything</em> and is the one thing a task cannot override. Above it: allow everything · ask everything · ask for listed actions, set per project and overridable per task.</p>
+      <p><strong>Safety is a floor and three modes.</strong> The floor is a two-entry deny list — <code>rm -rf /*</code> and <code>git push --force*</code>, matched as globs against the command and the target path — which applies in every mode <em>including Allow everything</em> and is the one thing a task cannot override. Above it: allow everything · ask everything · ask for listed actions, set per project and overridable per task.</p>
       <p>Deny and ask are different mechanisms rather than two strengths of one. The ask list is a tripwire — <em>stop and show me</em> — answered in the moment, run continues either way. The deny list is a refusal with <strong>no approve-anyway button</strong>; to run a denied command you edit the list in settings. That friction is the feature: it moves the decision out of a 1am approval prompt, where a mis-click costs a filesystem, and into a deliberate act with the pattern in front of you.</p>
       <p>A denial doesn't kill the run, though — that would just make people disable the list to get work done. The refusal goes back to <em>the model</em> with its reason, so it adapts. The Run tab shows exactly that: a force-push refused, and the non-forced push it proposed instead, which then asks. Workspace confinement sits underneath all of it and is not a setting at all.</p>
       <p><strong>There is a way back, and it is narrower than "undo".</strong> Every run captures a restore point first — git-backed where it can be, file snapshots otherwise — and <strong>Restore</strong> rewinds the workspace while the task is unfinished, disappearing once it's done, because at that point the changes are the deliverable. What it can't reach is stated where it matters rather than in small print: the <code>npm install</code> row on the Run tab says so on its own line, and the cancel dialog now offers <em>Cancel &amp; restore</em> against <em>Cancel, keep changes</em> and names the side effect neither can undo. A user who believes they've undone a push has not undone a push, and that is the one failure this feature must not have.</p>
-      <p>Approval is <strong>as you go</strong>, not plan-first — the agent works and each operation that needs you stops when it comes up, because a plan composed before the model has read any files is mostly guesswork. The dry-run toggle covers the case where you do want the plan: it runs normally, shows every operation and diff, and applies none of them. Default policy is <em>ask everything</em>; loosen it per project once you trust the shape of the work.</p>
+      <p>Approval is <strong>as you go</strong>, not plan-first — the agent works and each operation that needs you stops when it comes up, because a plan composed before the model has read any files is mostly guesswork. An approval has no time limit: the run waits until you answer, holding its position and its context. Default policy is <em>ask everything</em>; loosen it per project once you trust the shape of the work.</p>
     </div>
   </section>
 
@@ -798,8 +962,8 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       <h2>A task that happens to contain tasks</h2>
       <p><strong>An epic is a task whose size is Epic.</strong> <code>size</code> runs <code>XS · S · M · L · XL · Epic</code>, and that last value is what makes the task one — <code>kind</code> is derived, never set. There is no way to have an XL epic or an Epic-sized task that isn't one. It's also why <code>size</code> is the single field that had to leave the custom schema and become core: a field that changes what kind of thing a record <em>is</em> can't be optional per project. Children point at it with <code>parentId</code>, and that is the entire model. Because it's a task it inherits statuses, priority, custom fields, filters, the table, model routing and runs — rather than needing a parallel implementation of each. A separate entity would have meant duplicating the schema engine, the view layer and the run pipeline for something that behaves almost identically.</p>
       <p>It expands <em>in place</em> in the table: a disclosure triangle, <code>3/7 done</code>, and children as indented rows sharing the same columns. Expanding is view state, not navigation, so you can open an epic, scan it against everything else, and collapse without losing your place.</p>
-      <p><strong>Running an epic starts an orchestrator</strong> rather than a worker — one agent that reads the epic and dispatches the rest, one per subtask. It runs a tier above them, at <code>max</code> reasoning, because planning across seven subtasks is a harder problem than any one of them. Each subtask gets its own run record, its own operations and its own approvals, so a failure is attributable and the epic's other work is unaffected; the activity dock nests the children under the parent to keep that provenance visible. Concurrency is capped per project, because N parallel agents is N times the usage burn against the caps in the stats band.</p>
-      <p>Two things deliberately <em>don't</em> change. A child is an ordinary task — it appears in the table, matches filters, and keeps its own Run control, so being inside an epic constrains nothing. And safety is the stricter of epic and subtask: a permissive parent can't widen what its children are allowed to do. The one thing that <em>is</em> automatic: an epic moves itself to Done when the last child finishes, and back out if one reopens.</p>
+      <p><strong>Running an epic starts an orchestrator</strong> — a scheduler inside the service, not a model. It reads the children and their dependencies, computes an order, and starts one agent per subtask. Each subtask gets its own run record, its own operations and its own approvals, so a failure is attributable and the epic's other work is unaffected; the activity dock nests the children under the parent to keep that provenance visible. The scheduler spends no tokens itself, and it doesn't count against the concurrency cap — that cap counts the agents that <em>write</em>, and the scheduler isn't one.</p>
+      <p>Two things deliberately <em>don't</em> change. A child is an ordinary task — it appears in the table, matches filters, and keeps its own Run control, so being inside an epic constrains nothing. And safety is the stricter of epic and subtask: a permissive parent can't widen what its children are allowed to do. Children do skip <em>Open questions</em> and <em>Design</em> — the epic carries those for everyone. And the one automatic move: when the last child resolves, the epic run ends and the epic advances to the next enabled stage — usually Testing — then clears its own gates. It drops back to Executing if a child reopens.</p>
     </div>
   </section>
 
@@ -808,7 +972,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       <p class="eyebrow">Lifecycle</p>
       <h2>Statuses the system acts on</h2>
       <p><strong>Statuses are predefined, not per-project custom.</strong> They can't be custom, because the tool now <em>does</em> something at each one: it asks the questions, runs the tests, performs the review. A status the system has to implement behaviour for cannot be a string the user invents. So there's one predefined catalogue, and a project picks which stages apply. Order is fixed — you can skip <code>testing</code>, you can't put it before <code>executing</code>.</p>
-      <p>Four of them are gates, and each is a different answer to "why isn't this done yet". <strong>Open questions</strong> is Claude admitting it can't infer something rather than guessing and being confidently wrong. <strong>Design</strong> catches decisions that are cheap now and expensive once code exists — and Claude, not the button click, decides when the direction is unambiguous. <strong>Testing</strong> runs the project's regression suite plus whatever the task added. <strong>Review</strong> is Claude inspecting its own work by opening the app, then — if the project wants it — briefing you to inspect it yourself.</p>
+      <p>Four of them are gates, and each is a different answer to "why isn't this done yet". <strong>Open questions</strong> is Claude admitting it can't infer something rather than guessing and being confidently wrong. <strong>Design</strong> catches decisions that are cheap now and expensive once code exists — and Claude, not the button click, decides when the direction is unambiguous. <strong>Testing</strong> runs the project's regression suite plus whatever the task added. <strong>Review</strong> is Claude judging its own work from the cumulative diff and the test output, then — if the project wants it — briefing you to inspect it yourself. Opening the app to see the result arrives in 1.5 with computer use.</p>
       <p><strong>Every gate fails backwards to Executing</strong>, carrying its reason as the next run's brief: the failing test output, the review's objection. Forward movement requires clearing the gate, with no manual override, because a gate you can wave past is a gate nobody trusts.</p>
       <p>Two things keep the pipeline from going stale. <strong>Dependencies</strong> are detected when the task is drafted and block running — you can still queue a blocked task, since forbidding that means babysitting the queue, but the queue stops it when its turn comes and names the unfinished dependency rather than starting work whose premise isn't true. And <strong>re-evaluation</strong> re-reads your original prompt against the project as it is now, reconsidering description, size, priority and dependencies — up to concluding the task isn't needed any more. It's suggested, never automatic: when a dependency lands, when questions get answered, when enough has changed underneath. The tool keeps <code>sourcePrompt</code> for exactly this, and silently rewriting what you wrote would be worse than letting it drift.</p>
     </div>
@@ -818,8 +982,8 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
     <div class="sec-head prose">
       <p class="eyebrow">Density</p>
       <h2>Icons where the header already said it</h2>
-      <p>Priority, type and difficulty render as glyphs with no text. The column header names the dimension, so spelling out <em>Medium</em> in every row costs width and buys nothing; the word appears on hover and in the filter rail, where you're choosing rather than scanning. Four text columns became four narrow ones and the titles got the space back.</p>
-      <p>The risk in that is two scales that look alike, so they use different <strong>languages</strong>: priority grows in bar <em>height</em>, difficulty fills in dot <em>count</em>. Difficulty's unfilled steps are rings rather than dim discs — at 5px a fill difference alone is unreadable, and <code>●○○○</code> versus <code>●●●●</code> has to be legible at a glance or the column is decoration. Type isn't a scale at all, so it gets distinct silhouettes instead of a ramp.</p>
+      <p>Priority, type and size render as glyphs with no text. The column header names the dimension, so spelling out <em>Medium</em> in every row costs width and buys nothing; the word appears on hover and in the filter rail, where you're choosing rather than scanning. Four text columns became four narrow ones and the titles got the space back.</p>
+      <p>The risk in that is two scales that look alike, so they use different <strong>languages</strong>: priority grows in bar <em>height</em>, size fills in dot <em>count</em> — <code>XS</code> to <code>XL</code> as one to five of five, with <code>Epic</code> carrying its own mark. Size's unfilled steps are rings rather than dim discs — at 5px a fill difference alone is unreadable, and <code>●○○○○</code> versus <code>●●●●●</code> has to be legible at a glance or the column is decoration. Type isn't a scale at all, so it gets distinct silhouettes instead of a ramp.</p>
       <p><strong>Sort gains an AI option.</strong> <em>Suggested</em> orders tasks by how they influence each other, so work that reshapes a later task comes first and you don't build the same thing twice. It's a snapshot, not a live sort — edit the set and the chip marks itself stale rather than silently reordering under you — and every position carries a one-line <em>because</em>, since an ordering you can't interrogate is one you stop trusting the first time it looks wrong.</p>
     </div>
   </section>
@@ -853,9 +1017,9 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
 
     <div class="screen is-on" data-screen="table"    role="tabpanel"><div class="mount"></div>
       <div class="notes">
-        <div class="note"><b>The rail is generated</b><p><code>status</code> and <code>priority</code> are core facets present in every workspace. <code>type</code>, <code>difficulty</code> and <code>layer</code> come from this project's schema — the small grey label on each facet head says which. Open Homelab and you get a different rail.</p></div>
+        <div class="note"><b>The rail is generated</b><p><code>status</code>, <code>priority</code> and <code>size</code> are core facets present in every workspace. <code>type</code> and <code>layer</code> come from this project's schema — the small grey label on each facet head says which. Open Homelab and you get a different rail.</p></div>
         <div class="note"><b>Filter left, present top</b><p>With filtering moved to the rail, the toolbar collapses to view, sort, group and count. No filter chips, no duplication — <code>16 of 28</code> is the only trace, and it's honest about what's hidden.</p></div>
-        <div class="note"><b>Epics expand in place</b><p>TM-20 is an epic — same table, same columns, a disclosure triangle and <code>3/7 done</code>. Its children render indented beneath it rather than on another screen, so you can scan them against the same columns and collapse without losing your place.</p></div>
+        <div class="note"><b>Epics expand in place</b><p>FEAT-20 is an epic — same table, same columns, a disclosure triangle and <code>3/7 done</code>. Its children render indented beneath it rather than on another screen, so you can scan them against the same columns and collapse without losing your place.</p></div>
       </div>
     </div>
 
@@ -870,7 +1034,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
     <div class="screen" data-screen="questions" role="tabpanel"><div class="mount"></div>
       <div class="notes">
         <div class="note"><b>Ask rather than guess</b><p>Compose doesn't always have enough to work with. Rather than inventing an answer and being confidently wrong, the task lands here carrying what Claude actually needs to know — and there's no Run button, because there's nothing to run yet.</p></div>
-        <div class="note"><b>Answering re-evaluates</b><p>The answers change the task, so clearing the last one triggers a re-evaluation of description, size and priority before it moves to Ready. Answering a question and leaving a stale estimate behind would be half the job.</p></div>
+        <div class="note"><b>Answering flags, never rewrites</b><p>Clearing the last question moves the task to Ready and marks it stale — the answers changed it, so re-evaluation is suggested. It stays manual: the tool never rewrites your task without being asked.</p></div>
         <div class="note"><b>Choices or prose</b><p>Q2 offers options because there are only two sensible answers; Q1 didn't, so it took free text. Either way the reply is input to Claude, not a form field it writes down verbatim.</p></div>
       </div>
     </div>
@@ -893,23 +1057,23 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
 
     <div class="screen" data-screen="review" role="tabpanel"><div class="mount"></div>
       <div class="notes">
-        <div class="note"><b>AI review opens the app</b><p>It doesn't just read the diff — it spawns whatever views it needs to see the result, and says which ones. Here it caught a cache that survives project deletion, which no test covered and no diff makes obvious.</p></div>
+        <div class="note"><b>AI review reads the evidence</b><p>The verdict comes from the task description, the cumulative diff and the test output. Here it caught a cache that survives project deletion — a path no test covered. Opening the app to see the result arrives in 1.5 with computer use.</p></div>
         <div class="note"><b>Manual review is briefed, not dumped</b><p>The one gate a model can't clear, so Claude's job is making yours small: what changed in plain language, a specific checklist of what to look for, and a way in. "Please review" with a diff attached is how review becomes rubber-stamping.</p></div>
-        <div class="note"><b>The checklist is falsifiable</b><p>Each item is an action with an expected result — write Homelab's key to a Task Manager task, <em>it should be rejected</em>. Not "check validation works", which you can convince yourself of without looking.</p></div>
+        <div class="note"><b>The checklist is falsifiable</b><p>Each item is an action with an expected result — write Homelab's key to a PAIM task, <em>it should be rejected</em>. Not "check validation works", which you can convince yourself of without looking.</p></div>
       </div>
     </div>
 
     <div class="screen" data-screen="epic" role="tabpanel"><div class="mount"></div>
       <div class="notes">
         <div class="note"><b>An epic is a task</b><p>It carries <code>kind: "epic"</code> and nothing else is special — so it inherits statuses, priority, custom fields, filters, routing and runs instead of needing a parallel implementation of each. Children point at it with <code>parentId</code>.</p></div>
-        <div class="note"><b>Run epic spawns an orchestrator</b><p>One agent reads the epic and dispatches the rest, one per subtask, each with its own run record and approvals. It runs a tier above the workers — <code>max</code> reasoning here — because planning across seven subtasks is harder than any one of them.</p></div>
-        <div class="note"><b>The epic never captures a task</b><p>Every child keeps its own ▶ control. TM-12 is mid-run on its own right now while the rest sit idle — being inside an epic constrains nothing.</p></div>
+        <div class="note"><b>Run epic starts a scheduler</b><p>The orchestrator is service code, not a model — it computes a dependency order and dispatches one agent per subtask, each with its own run record and approvals. It spends no tokens on planning; the workers do the work.</p></div>
+        <div class="note"><b>The epic never captures a task</b><p>Every child keeps its own ▶ control. CHORE-12 is mid-run on its own right now while the rest sit idle — being inside an epic constrains nothing.</p></div>
       </div>
     </div>
 
     <div class="screen" data-screen="compose" role="tabpanel"><div class="mount"></div>
       <div class="notes">
-        <div class="note"><b>The schema writes the prompt</b><p>Claude extracts <code>type</code>, <code>difficulty</code> and <code>layer</code> because they're in <em>this</em> workspace's <code>fieldSchema</code> — the same source that validates API writes. A workspace without them never sees them. No per-project prompting.</p></div>
+        <div class="note"><b>The schema writes the prompt</b><p>Claude extracts <code>type</code> and <code>layer</code> because they're in <em>this</em> workspace's <code>fieldSchema</code> — the same source that validates API writes. A workspace without them never sees them. No per-project prompting.</p></div>
         <div class="note"><b>Draft, not commit</b><p>Nothing is created until you press the button. Every inferred value is editable in place, and the model's confidence shows as absence: <code>assignee</code> is left empty rather than guessed, and says so.</p></div>
         <div class="note"><b>Show the cost</b><p>Model, latency and token counts sit in the footer of every AI surface. A tool that spends your money on each keystroke should say how much, where you can see it without going looking.</p></div>
       </div>
@@ -957,7 +1121,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
 
     <div class="screen" data-screen="detail"   role="tabpanel"><div class="mount"></div>
       <div class="notes">
-        <div class="note"><b>Panel, not a page</b><p>The detail slides over the list so surrounding rows stay visible and you never lose your place in a triage pass. Still deep-linkable — <code>/t/TM-3</code> loads full-page on a cold open.</p></div>
+        <div class="note"><b>Panel, not a page</b><p>The detail slides over the list so surrounding rows stay visible and you never lose your place in a triage pass. Still deep-linkable — <code>/t/FEAT-3</code> loads full-page on a cold open.</p></div>
         <div class="note"><b>Edit in place, always</b><p><code>Size</code> is mid-edit here. Click a value, pick, blur to save. No modals, no Save button, and the write goes out optimistically — the row behind updates before the server answers. Setting it to <code>Epic</code> is what promotes a task.</p></div>
         <div class="note"><b>No author, only time</b><p>Writes are anonymous, so the panel ends in timestamps rather than an activity feed. <code>assignee</code> survives because it's a value you set, not one derived from who made the request.</p></div>
       </div>
@@ -981,9 +1145,9 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
 
     <div class="screen" data-screen="fields" role="tabpanel"><div class="mount"></div>
       <div class="notes">
-        <div class="note"><b>Two toggles, two surfaces</b><p><code>Column</code> puts a field in the table; <code>Facet</code> puts it in the left rail. <code>layer</code> is a facet but not a column; <code>effort</code> is both; <code>spike</code> is neither.</p></div>
+        <div class="note"><b>Two toggles, two surfaces</b><p><code>Column</code> puts a field in the table; <code>Facet</code> puts it in the left rail. <code>layer</code> is a facet but not a column; <code>type</code> is both; <code>spike</code> is neither.</p></div>
         <div class="note"><b>Removal is soft</b><p><code>spike</code> is hidden but still holds values on four tasks, and says so. Nothing about "remove this field" should feel like it might be destructive, because it isn't.</p></div>
-        <div class="note"><b>Keys are mono, labels are not</b><p><code>difficulty</code> in blue mono is the identifier an agent writes; "Difficulty" is what you read. The typographic split is the whole convention — mono means addressable.</p></div>
+        <div class="note"><b>Keys are mono, labels are not</b><p><code>layer</code> in blue mono is the identifier an agent writes; "Layer" is what you read. The typographic split is the whole convention — mono means addressable.</p></div>
       </div>
     </div>
   </section>
@@ -1029,7 +1193,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       <span class="sem"><span class="bars"><i style="background:#7E9FBE"></i><i></i><i></i></span>Medium <code>#7E9FBE</code></span>
       <span class="sem"><span class="bars"><i></i><i></i><i></i></span>Low <code>#3A3835</code></span>
     </div>
-    <p style="font-size:13.5px;color:var(--tx-secondary);max-width:660px;margin-top:16px">Brass appears twice on purpose — as <em>Executing</em> and as <em>High</em>. Both mean the same thing, and the glyphs differ (a half-filled ring versus stacked bars) so the column never has to be read twice. Custom-field values (<code>type</code>, <code>difficulty</code>, <code>layer</code>) stay deliberately uncoloured: colour is reserved for state, and a schema that can grow without limit can't be given a palette that grows with it.</p>
+    <p style="font-size:13.5px;color:var(--tx-secondary);max-width:660px;margin-top:16px">Brass appears twice on purpose — as <em>Executing</em> and as <em>High</em>. Both mean the same thing, and the glyphs differ (a half-filled ring versus stacked bars) so the column never has to be read twice. Custom-field values (<code>type</code>, <code>layer</code>) stay deliberately uncoloured: colour is reserved for state, and a schema that can grow without limit can't be given a palette that grows with it.</p>
     <h3 style="margin:34px 0 12px">Operation risk</h3>
     <div class="semrow">
       <span class="sem"><span class="op-kind safe">read</span>Safe — auto-runs <code>#7A756E</code></span>
@@ -1059,11 +1223,11 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
     <div class="scale">
       <div><span class="spec">28 / 600 / -.02em</span><span class="demo" style="font-size:28px;font-weight:600;letter-spacing:-.02em">Projects</span></div>
       <div><span class="spec">17 / 600 / -.01em</span><span class="demo" style="font-size:17px;font-weight:600;letter-spacing:-.01em">Per-project field schema validation</span></div>
-      <div><span class="spec">13.5 / 600 — workspace</span><span class="demo" style="font-size:13.5px;font-weight:600">Task Manager</span></div>
+      <div><span class="spec">13.5 / 600 — workspace</span><span class="demo" style="font-size:13.5px;font-weight:600">PAIM</span></div>
       <div><span class="spec">13 / 450 — table row</span><span class="demo" style="font-size:13px;font-weight:450">Trash and restore for deleted tasks</span></div>
       <div><span class="spec">12.5 / 400 — facet item</span><span class="demo" style="font-size:12.5px;color:var(--tx-secondary)">Open questions</span></div>
-      <div><span class="spec">mono 11 — identifiers</span><span class="demo" style="font-family:var(--font-mono);font-size:11px;color:var(--ac)">TM-14 · difficulty · in_progress</span></div>
-      <div><span class="spec">mono 10 / .11em / caps</span><span class="demo" style="font-family:var(--font-mono);font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--tx-muted)">Difficulty</span></div>
+      <div><span class="spec">mono 11 — identifiers</span><span class="demo" style="font-family:var(--font-mono);font-size:11px;color:var(--ac)">FEAT-14 · layer · in_progress</span></div>
+      <div><span class="spec">mono 10 / .11em / caps</span><span class="demo" style="font-family:var(--font-mono);font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--tx-muted)">Layer</span></div>
     </div>
     <div class="two" style="margin-top:40px">
       <div>
@@ -1091,14 +1255,14 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
   <section>
     <div class="sec-head prose">
       <p class="eyebrow">Open questions</p>
-      <h2>Nothing outstanding</h2>
-      <p>Every decision is made. The specification lives in <code>docs/</code>, split into fifteen documents with a glossary and a banned-terms table, written in ASD-STE100 Simplified Technical English.</p>
+      <h2>Three held open</h2>
+      <p>The specification lives in <code>docs/</code>, split into fifteen documents with a glossary and a banned-terms table, written in ASD-STE100 Simplified Technical English. Three decisions are deliberately unmade, parked in <code>docs/15-open-questions.md</code>: where account-level usage data could come from (nothing ships against it until that's known), how per-project token budgets should relate to the shared account windows, and how the unauthenticated localhost API defends itself from the browser.</p>
       <p>Four values are answers rather than conclusions: staleness after 14 days, staleness after 10 completed tasks, 30-day trash retention, and one concurrent agent per project. They are first estimates. <code>docs/15-open-questions.md</code> lists them so a measurement can replace them.</p>
-      <p>The last decision removed a setting rather than adding one. Two numbers described one constraint — the count of agents writing to a single workspace — and a configuration that satisfied both could still corrupt files. <code>maxConcurrentRuns</code> now counts every agent in a project, including an epic's subtask agents.</p>
+      <p>The last decision removed a role rather than adding one. The epic orchestrator is a scheduler inside the service, not a model — <code>maxConcurrentRuns</code> counts the agents that write to a workspace, and the scheduler isn't one.</p>
     </div>
   </section>
 
-  <footer>Task Manager · design language rev K · warm graphite · dark-only by specification</footer>
+  <footer>PAIM · design language rev K · warm graphite · dark-only by specification</footer>
 </div>
 
 <script>
@@ -1108,7 +1272,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
     + '<circle cx="7" cy="7" r="4.5"/><path d="M10.6 10.6L14 14" stroke-linecap="round"/></svg>';
 
   var PROJECTS = [
-    {ic:'&#9672;', nm:'Task Manager',   c:'111,168,206', hex:'#6FA8CE', open:17, on:true},
+    {ic:'&#9672;', nm:'PAIM',   c:'111,168,206', hex:'#6FA8CE', open:17, on:true},
     {ic:'&#8962;', nm:'Homelab',        c:'111,165,124', hex:'#6FA57C', open:9},
     {ic:'&#10022;',nm:'Portfolio Site', c:'201,154,84',  hex:'#C99A54', open:4},
     {ic:'&#9650;', nm:'RCX Briefings',  c:'203,111,99',  hex:'#CB6F63', open:23},
@@ -1184,12 +1348,6 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
           fitem(typeIcon('chore'),'Chore',6,false),
           fitem(typeIcon('spike'),'Spike',3,false)
         ])
-      + facet('Difficulty','schema',true,[
-          fitem(diffIcon('trivial'),'Trivial',4,false),
-          fitem(diffIcon('easy'),'Easy',9,false),
-          fitem(diffIcon('moderate'),'Moderate',10,false),
-          fitem(diffIcon('hard'),'Hard',5,false)
-        ])
       + facet('Size','core',true,[
           fitem('<span class="pill sz">XS</span>','',3,false),
           fitem('<span class="pill sz">S</span>','',9,false),
@@ -1205,25 +1363,25 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       + '</div>';
   }
   /* ── stats band ──────────────────────────────────── */
-  function meter(label,pct,cap,reset){
-    var over = pct > cap;
+  /* Meters show the project's own metered spend against its token budget
+     (the cap). Account-level windows are an open question — docs/15. */
+  function meter(label,pct,budget,reset){
+    var over = pct >= 100;
     return '<div class="meter-u'+(over?' blocked':'')+'">'
       + '<div class="lbl">'+label+'<em>'+pct+'%</em></div>'
       + '<div class="track">'
-      +   '<div class="fill" style="width:'+Math.min(pct,cap)+'%"></div>'
-      +   (over?'<div class="over" style="left:'+cap+'%;width:'+(pct-cap)+'%"></div>':'')
-      +   '<div class="cap" style="left:'+cap+'%" title="Your cap: '+cap+'%"></div>'
+      +   '<div class="fill" style="width:'+Math.min(pct,100)+'%"></div>'
       + '</div>'
-      + '<div class="reset">cap '+cap+'% · '+reset+'</div></div>';
+      + '<div class="reset">'+budget+' · '+reset+'</div></div>';
   }
   function stats(){
     return '<div class="statsband">'
       + '<div class="stat-id"><span class="ver">v0.4.2</span>'
       +   '<b>28</b> tasks<span>·</span><b>17</b> open<span>·</span>11 closed</div>'
       + '<div class="meters">'
-      +   meter('5-hour',46,70,'resets 2h 14m')
-      +   meter('Weekly',71,85,'resets Sun')
-      +   meter('Fable',62,50,'resets Sun')
+      +   meter('5-hour',46,'0.9M / 2M tok','ends 2h 14m')
+      +   meter('Weekly',71,'7.1M / 10M tok','ends Mon')
+      +   meter('Fable',124,'2.5M / 2M tok','ends Mon')
       +   '<span class="expand"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" '
       +     'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
       +     '<path d="M4 6.5L8 10.5L12 6.5"/></svg></span>'
@@ -1339,12 +1497,12 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
   }
 
   /* ── table ───────────────────────────────────────── */
-  var COLS = ['<th style="width:30px"></th>','<th style="width:56px">Key</th>','<th>Title</th>',
+  var COLS = ['<th style="width:30px"></th>','<th style="width:84px">Key</th>','<th>Title</th>',
     '<th class="c" style="width:58px">Prio</th>','<th class="c" style="width:52px">Type</th>',
-    '<th class="c" style="width:66px">Diff</th>','<th class="c" style="width:56px">Size</th>',
+    '<th class="c" style="width:66px">Size</th>',
     '<th class="num" style="width:96px">Updated</th>'];
   function group(caret,glyph,label,count,last){
-    return '<tr class="grouprow"><td colspan="8"'+(last?' style="border-bottom:0"':'')+'>'
+    return '<tr class="grouprow"><td colspan="7"'+(last?' style="border-bottom:0"':'')+'>'
       + '<div class="gh"><span class="caret">'+caret+'</span>'+glyph+label+' <em>'+count+'</em></div></td></tr>';
   }
   function row(t){
@@ -1355,8 +1513,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       + '<td class="title">'+t.t+'</td>'
       + '<td class="icn">'+prioIcon(t.p)+'</td>'
       + '<td class="icn">'+typeIcon(t.ty)+'</td>'
-      + '<td class="icn">'+diffIcon(t.df)+'</td>'
-      + '<td class="icn"><span class="pill sz">'+t.e+'</span></td>'
+      + '<td class="icn">'+sizeIcon(t.e)+'</td>'
       + '<td class="when">'+t.u+'</td></tr>';
   }
   /* An epic renders as a task row with a disclosure triangle and child progress.
@@ -1368,13 +1525,12 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       +   '<span class="kidcount">'+e.done+'/'+e.total+' done</span></td>'
       + '<td class="icn">'+prioIcon(e.p)+'</td>'
       + '<td class="icn">'+typeIcon(e.ty)+'</td>'
-      + '<td class="icn">'+diffIcon(e.df)+'</td>'
       + '<td class="icn"><span class="pill sz epicsz">Epic</span></td>'
       + '<td class="when">'+e.u+'</td></tr>';
   }
   /* ── glyph vocabularies ──────────────────────────────
      Two scales must stay distinguishable at 12px, so they use different
-     languages: priority grows in bar HEIGHT, difficulty fills in dot COUNT.
+     languages: priority grows in bar HEIGHT, size fills in dot COUNT.
      Type is not a scale, so it gets distinct silhouettes instead.          */
   function svg(body,w){ return '<svg width="'+(w||13)+'" height="13" viewBox="0 0 16 16" '
     + 'fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
@@ -1388,12 +1544,12 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
     spike:   svg('<path d="M9 2.2L4.2 9h3.2l-.6 4.8L11.8 7H8.6z"/>')
   };
   var TYPE_LABEL = {feature:'Feature',bug:'Bug',chore:'Chore',spike:'Spike'};
-  var DIFF_N = {trivial:1,easy:2,moderate:3,hard:4};
-  var DIFF_LABEL = {trivial:'Trivial',easy:'Easy',moderate:'Moderate',hard:'Hard'};
-  function diffIcon(d){
-    var n = DIFF_N[d], out = '';
-    for(var i=1;i<=4;i++) out += '<i'+(i<=n?' class="on"':'')+'></i>';
-    return '<span class="diffdots" title="Difficulty: '+DIFF_LABEL[d]+'">'+out+'</span>';
+  var SIZE_N = {XS:1,S:2,M:3,L:4,XL:5};
+  function sizeIcon(sz){
+    if(sz==='Epic') return '<span class="pill sz epicsz">Epic</span>';
+    var n = SIZE_N[sz], out = '';
+    for(var i=1;i<=5;i++) out += '<i'+(i<=n?' class="on"':'')+'></i>';
+    return '<span class="sizedots" title="Size: '+sz+'">'+out+'</span>';
   }
   function typeIcon(t){
     return '<span class="tyicon" title="Type: '+TYPE_LABEL[t]+'">'+TYPE_ICON[t]+'</span>';
@@ -1407,24 +1563,26 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
     return '<span class="bars" title="Priority: '+PRIO_LABEL[p]+'">'+out+'</span>';
   }
 
+  /* Keys carry the type prefix — FEAT, BUG, CHORE, SPIKE, DEBT — assigned at
+     creation; one counter per project. */
   var INPROG = [
-    {k:'TM-4', t:'Table view: grouping, inline edit, column resize',        p:'high',ty:'feature',df:'moderate',e:'M', u:'18m ago'},
-    {k:'TM-3', t:'Per-project field schema validation, cached per project', p:'high',ty:'feature',df:'hard',    e:'L', u:'2h ago'},
-    {k:'TM-11',t:'SSE change stream and client revalidation',               p:'med', ty:'feature',df:'moderate',e:'S', u:'1h ago'}
+    {k:'FEAT-4', t:'Table view: grouping, inline edit, column resize',        p:'high',ty:'feature',e:'M', u:'18m ago'},
+    {k:'FEAT-3', t:'Per-project field schema validation, cached per project', p:'high',ty:'feature',e:'L', u:'2h ago'},
+    {k:'FEAT-11',t:'SSE change stream and client revalidation',               p:'med', ty:'feature',e:'S', u:'1h ago'}
   ];
   var TODO = [
-    {k:'TM-14',t:'Reject type changes on existing fields, suggest a new key',p:'high',ty:'chore',  df:'easy',    e:'S', u:'3d ago'},
-    {k:'TM-5', t:'Trash and restore for deleted tasks',            p:'med', ty:'feature',df:'moderate',e:'M', u:'yesterday'},
-    {k:'TM-7', t:'Custom field editor in project settings',                 p:'med', ty:'feature',df:'moderate',e:'S', u:'yesterday'},
-    {k:'TM-16',t:'OpenAPI description generated from the Zod schemas',      p:'low', ty:'chore',  df:'trivial', e:'XS',u:'4d ago'}
+    {k:'CHORE-14',t:'Reject type changes on existing fields, suggest a new key',p:'high',ty:'chore',  e:'S', u:'3d ago'},
+    {k:'FEAT-5', t:'Trash and restore for deleted tasks',            p:'med', ty:'feature',e:'M', u:'yesterday'},
+    {k:'FEAT-7', t:'Custom field editor in project settings',                 p:'med', ty:'feature',e:'S', u:'yesterday'},
+    {k:'CHORE-16',t:'OpenAPI description generated from the Zod schemas',      p:'low', ty:'chore',  e:'XS',u:'4d ago'}
   ];
   /* An epic, and its children — children are ordinary tasks with a parentId. */
-  var EPIC = {k:'TM-20', t:'Pagination overhaul', p:'high', ty:'feature', df:'hard',
+  var EPIC = {k:'FEAT-20', t:'Pagination overhaul', p:'high', ty:'feature',
               e:'Epic', u:'12m ago', done:3, total:7};
   var EPIC_KIDS = [
-    {k:'TM-12',t:'Cursor pagination on the task list endpoint',             p:'low', ty:'chore',  df:'easy',    e:'S', u:'2d ago'},
-    {k:'TM-21',t:'Cursor encoding is not stable across restarts',           p:'high',ty:'bug',    df:'moderate',e:'M', u:'1d ago'},
-    {k:'TM-22',t:'Backfill pagination tests for every list endpoint',       p:'med', ty:'chore',  df:'easy',    e:'M', u:'1d ago'}
+    {k:'CHORE-12',t:'Cursor pagination on the task list endpoint',             p:'low', ty:'chore',  e:'S', u:'2d ago'},
+    {k:'BUG-21',t:'Cursor encoding is not stable across restarts',           p:'high',ty:'bug',    e:'M', u:'1d ago'},
+    {k:'CHORE-22',t:'Backfill pagination tests for every list endpoint',       p:'med', ty:'chore',  e:'M', u:'1d ago'}
   ];
   function taskTable(opts){
     opts = opts||{};
@@ -1466,8 +1624,8 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
     }).join('');
     return '<div class="tv">'
       + '<div class="tv-head">'
-      +   '<div class="tv-crumb"><span class="k">TM-3</span><span>&#8250;</span>'
-      +     '<span>Pagination overhaul</span></div>'
+      +   '<div class="tv-crumb"><span>All tasks</span><span>&#8250;</span>'
+      +     '<span class="k">FEAT-3</span></div>'
       +   '<div class="tv-title"><h4>Per-project field schema validation, cached per project</h4>'
       +     '<span class="statuspill '+statusCls+'">'+status+'</span>'
       +     (opts.run!==false?'<span class="btn">&#9654; Run <span class="kbd">R</span></span>':'')
@@ -1481,17 +1639,16 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       + '<div class="sfield"><b>Status</b><span><span class="half" style="color:#C99A54">'
       +   '</span>'+(opts.sideStatus||'Executing')+'</span></div>'
       + '<div class="sfield"><b>Priority</b><span>'+prioIcon('high')+'High</span></div>'
-      + '<div class="sfield"><b>Size</b><span><span class="pill sz">L</span></span></div>'
-      + '<div class="sfield"><b>Type &middot; Difficulty</b><span>'+typeIcon('feature')
-      +   'Feature<span style="color:var(--bd-strong)">&middot;</span>'
-      +   diffIcon('hard')+'Hard</span></div>'
+      + '<div class="sfield"><b>Size</b><span>'+sizeIcon('L')
+      +   '<span style="margin-left:6px">L</span></span></div>'
+      + '<div class="sfield"><b>Type</b><span>'+typeIcon('feature')+'Feature</span></div>'
       + '<div class="sfield"><b>Layer</b><span><span class="pill">storage</span></span></div>'
       + '<div class="sfield"><b>Model</b><span><span class="mdl">claude-opus-5'
       +   '<span class="dot-sep">&middot;</span>xhigh</span></span></div>'
       + '<div class="sfield"><b>Depends on</b><div class="deps">'
-      +   '<div class="dep metdep"><span class="k">TM-2</span>'
+      +   '<div class="dep metdep"><span class="k">FEAT-2</span>'
       +     '<span class="t">SQLite repository layer</span><span class="st">&#10003;</span></div>'
-      +   '<div class="dep blocked"><span class="k">TM-1</span>'
+      +   '<div class="dep blocked"><span class="k">CHORE-1</span>'
       +     '<span class="t">REST envelope &amp; error codes</span>'
       +     '<span class="st">executing</span></div>'
       + '</div></div>'
@@ -1504,7 +1661,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
     return ''
       + '<div class="stale"><span style="color:var(--s-progress);flex:none">&#8635;</span>'
       +   '<span class="txt"><b>Worth re-evaluating</b>'
-      +   'TM-2, which this depends on, finished 3 days ago and changed the repository '
+      +   'FEAT-2, which this depends on, finished 3 days ago and changed the repository '
       +   'layer this task was written against. Re-reading your original prompt against '
       +   'the project as it is now may change the description, size or dependencies '
       +   '&mdash; or find the task is no longer needed.</span>'
@@ -1582,7 +1739,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       +     'the task payload clean; costs a round trip.',false)
       + '</div>'
       + '<div class="p-sec">Or reply</div>'
-      + '<div class="qinput">Describe the direction, or drop an image&hellip;'
+      + '<div class="qinput">Describe the direction in your own words&hellip;'
       +   '<span class="caret-blink"></span></div>';
   }
 
@@ -1596,9 +1753,9 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
         + '<td class="ms">'+(ms||'&mdash;')+'</td></tr>';
     }
     return ''
-      + '<div class="testsum"><span><b>11</b> of 12 passed</span>'
+      + '<div class="testsum"><span><b>7</b> of 9 passed</span>'
       +   '<span style="color:var(--p-urgent)">1 failed</span>'
-      +   '<span style="color:var(--tx-muted)">2.4s &middot; 4m ago</span>'
+      +   '<span style="color:var(--tx-muted)">1 skipped &middot; 1.5s &middot; 4m ago</span>'
       +   '<span class="chip" style="margin-left:auto">Re-run</span></div>'
       + '<p class="tv-desc" style="color:#C79B95">A failure sends the task back to '
       +   '<b>Executing</b> with this output as the next run&rsquo;s brief. It moves on '
@@ -1681,11 +1838,11 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       + '<div class="verdict rejected"><span class="vico">&#8856;</span>'
       +   '<span class="vtxt"><b>AI review &mdash; rejected</b>'
       +   '<p>The cache is invalidated on schema write, but not on project delete, so a '
-      +   'recreated project with the same slug is served the previous schema. I opened '
-      +   '<code>/p/task-manager/settings</code> and the table view to confirm the stale '
-      +   'columns render.</p>'
-      +   '<p style="color:var(--tx-muted);font-size:11.5px">claude-opus-5 &middot; 2 views '
-      +   'opened &middot; 3m ago &mdash; sent back to Executing with this as the brief.</p>'
+      +   'recreated project with the same slug is served the previous schema. The diff '
+      +   'never calls <code>evictProject</code> on the delete path, and no test covers '
+      +   'the recreated-slug case.</p>'
+      +   '<p style="color:var(--tx-muted);font-size:11.5px">claude-opus-5 &middot; diff + '
+      +   'test output &middot; 3m ago &mdash; sent back to Executing with this as the brief.</p>'
       +   '</span></div>'
       + '<div class="p-sec">Manual review</div>'
       + '<p class="tv-desc">Claude changed how field validation is built so each project '
@@ -1695,7 +1852,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       + '<div class="p-sec">What to check</div>'
       + '<div class="checklist">'
       +   '<span class="chk"><i></i>Add a field to <b>Homelab</b>, then write that key to a '
-      +     '<b>Task Manager</b> task &mdash; it should be rejected, not accepted.</span>'
+      +     '<b>PAIM</b> task &mdash; it should be rejected, not accepted.</span>'
       +   '<span class="chk"><i></i>Rename a field in settings and confirm the table column '
       +     'header updates without a reload.</span>'
       +   '<span class="chk"><i></i>POST with <code>?allowUnknownFields=true</code> and check '
@@ -1731,14 +1888,14 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       return '<tr class="task"><td style="width:26px">'+glyph+'</td>'
         + '<td class="key">'+t.k+'</td><td class="title">'+t.t+'</td>'
         + '<td class="icn" style="width:46px">'+typeIcon(t.ty)+'</td>'
-        + '<td class="icn" style="width:52px"><span class="pill sz">'+t.e+'</span></td>'
+        + '<td class="icn" style="width:52px">'+sizeIcon(t.e)+'</td>'
         + '<td class="num" style="width:74px">'
         +   (st==='run'?'<span class="thinking"><i></i></span>'
              :'<span class="ibtn" title="Run this one">&#9654;</span>')+'</td></tr>';
     }
     return '<div class="epicpage">'
       + '<div class="epichead">'
-      +   '<span class="epicmark big">epic</span><span class="k">TM-20</span>'
+      +   '<span class="epicmark big">epic</span><span class="k">FEAT-20</span>'
       +   '<h4>Pagination overhaul</h4>'
       +   '<span class="btn" style="margin-left:auto">&#9654; Run epic</span></div>'
       + '<p class="epicdesc">Cursor pagination is wrong in three separate places and the '
@@ -1749,8 +1906,9 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       +     '<i style="width:43%"></i></span><span class="n">3/7</span></span></span>'
       +   '<span class="em"><b>Priority</b><span class="prio">'+prioIcon('high')+'High</span></span>'
       +   '<span class="em"><b>Size</b><span class="pill sz epicsz">Epic</span></span>'
-      +   '<span class="em"><b>Orchestrator</b><span class="mdl">claude-opus-5'
-      +     '<span class="dot-sep">&middot;</span>max</span></span>'
+      +   '<span class="em"><b>Orchestrator</b><span style="font-size:12.5px">'
+      +     'scheduler <span class="routed" style="font-size:10px;color:var(--tx-muted)">'
+      +     'dependency order &middot; no model</span></span></span>'
       +   '<span class="em"><b>Agents</b><span style="font-size:12.5px">'
       +     '1 at a time <span class="routed" style="font-size:10px;color:var(--tx-muted)">'
       +     'shared filesystem</span></span></span>'
@@ -1759,13 +1917,13 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       +   'font-family:var(--font-ui);color:var(--tx-muted)">— 7 tasks, run together by the '
       +   'orchestrator or one at a time</span></div>'
       + '<table class="kidtable"><tbody>'
-      +   kid({k:'TM-12',t:'Cursor pagination on the task list endpoint',ty:'chore',e:'S'},'run')
-      +   kid({k:'TM-21',t:'Cursor encoding is not stable across restarts',ty:'bug',e:'M'},'todo')
-      +   kid({k:'TM-22',t:'Backfill pagination tests for every list endpoint',ty:'chore',e:'M'},'todo')
-      +   kid({k:'TM-23',t:'Document the cursor format in docs/api.md',ty:'chore',e:'XS'},'todo')
-      +   kid({k:'TM-9', t:'Project slug uniqueness and immutability',ty:'chore',e:'S'},'done')
-      +   kid({k:'TM-1', t:'Define REST envelope and error codes',ty:'chore',e:'M'},'done')
-      +   kid({k:'TM-2', t:'SQLite repository layer with JSON columns',ty:'feature',e:'L'},'done')
+      +   kid({k:'CHORE-12',t:'Cursor pagination on the task list endpoint',ty:'chore',e:'S'},'run')
+      +   kid({k:'BUG-21',t:'Cursor encoding is not stable across restarts',ty:'bug',e:'M'},'todo')
+      +   kid({k:'CHORE-22',t:'Backfill pagination tests for every list endpoint',ty:'chore',e:'M'},'todo')
+      +   kid({k:'CHORE-23',t:'Document the cursor format in docs/api.md',ty:'chore',e:'XS'},'todo')
+      +   kid({k:'CHORE-9', t:'Project slug uniqueness and immutability',ty:'chore',e:'S'},'done')
+      +   kid({k:'CHORE-1', t:'Define REST envelope and error codes',ty:'chore',e:'M'},'done')
+      +   kid({k:'FEAT-2', t:'SQLite repository layer with JSON columns',ty:'feature',e:'L'},'done')
       + '</tbody></table></div>';
   }
 
@@ -1793,9 +1951,8 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       +     '<div class="inferred">'
       +       inf('Priority',prioIcon('urgent')+' Urgent')
       +       inf('Type',typeIcon('bug')+' Bug')
-      +       inf('Difficulty',diffIcon('moderate')+' Moderate')
       +       inf('Layer','<span class="pill">api</span>')
-      +       inf('Size','<span class="pill sz">L</span>')
+      +       inf('Size',sizeIcon('L')+' L')
       +       inf('Assignee','Unassigned',true)
       +     '</div>'
       +     '<div class="warn">&#9888; No value inferred for <code>assignee</code> &mdash; '
@@ -1830,7 +1987,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       + '<div class="runbar">'
       +   '<span class="runstate awaiting"><i></i> Awaiting approval</span>'
       +   '<span class="runmeta">7 operations &middot; 5 done &middot; 1 refused &middot; 1 awaiting you</span>'
-      +   '<span class="wspath" style="margin-left:auto">~/Projects/task-manager</span>'
+      +   '<span class="wspath" style="margin-left:auto">~/Projects/paim</span>'
       +   '<span class="btn-restore">&#8634; Restore</span>'
       + '</div>'
       + '<p class="tv-desc" style="color:var(--tx-muted);font-size:12px">'
@@ -1905,27 +2062,27 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
   }
   function dockRows(){
     return '<div class="dock-rows">'
-      + arow(PROJECTS[0],'TM-12','Cursor pagination resets on the second page',
+      + arow(PROJECTS[0],'BUG-24','Cursor pagination resets on the second page',
              'claude-opus-5','xhigh', bar(4,6),'2m 14s')
-      + arow(PROJECTS[3],'RCX-8','Draft the Q3 security briefing',
+      + arow(PROJECTS[3],'TASK-8','Draft the Q3 security briefing',
              'claude-fable-5','high',
-             '<span class="held">&#10073;&#10073; Fable cap &middot; resumes Sun</span>',
+             '<span class="heldnote">&#10073;&#10073; Fable cap &middot; resumes Mon</span>',
              '3m 10s',{held:true})
-      + arow(PROJECTS[1],'HL-3','Rebuild the Proxmox migration notes',
+      + arow(PROJECTS[1],'TASK-3','Rebuild the Proxmox migration notes',
              'claude-opus-5','high',
              '<span class="needs">&#9888; needs you</span>','4m 02s')
-      + arow(PROJECTS[0],'TM-20','Pagination overhaul',
-             'claude-opus-5','max', bar(3,7),'6m 51s',{epic:true})
-      + arow(PROJECTS[0],'TM-12','Cursor pagination on the task list endpoint',
+      + arow(PROJECTS[0],'FEAT-20','Pagination overhaul',
+             'scheduler','', bar(3,7),'6m 51s',{epic:true})
+      + arow(PROJECTS[0],'CHORE-12','Cursor pagination on the task list endpoint',
              'claude-opus-5','xhigh', bar(2,5),'1m 09s',{sub:true})
-      + arow(PROJECTS[0],'TM-21','Cursor encoding is not stable across restarts',
+      + arow(PROJECTS[0],'BUG-21','Cursor encoding is not stable across restarts',
              'claude-sonnet-5','high',
              '<span class="prog indet"><span class="bar"></span>'
              + '<span class="n">planning</span></span>','0m 22s',{sub:true})
       + '<div class="dock-group">Queued <span style="color:var(--bd-strong)">2</span></div>'
-      + arow(PROJECTS[0],'TM-5','Trash and restore for deleted tasks',
+      + arow(PROJECTS[0],'FEAT-5','Trash and restore for deleted tasks',
              'claude-opus-5','xhigh','<span class="qpos">next up</span>','',{q:true})
-      + arow(PROJECTS[2],'PS-2','Rewrite the case-study copy',
+      + arow(PROJECTS[2],'TASK-2','Rewrite the case-study copy',
              'claude-haiku-4-5','low','<span class="qpos">#2</span>','',{q:true})
       + '</div>';
   }
@@ -1936,7 +2093,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
     return '<div class="scrim" style="z-index:8"></div><div class="dlg">'
       + '<div class="dlg-body">'
       +   '<h4>Cancel this run?</h4>'
-      +   '<p><b style="color:var(--tx-primary)">TM-12</b> — Cursor pagination resets on the '
+      +   '<p><b style="color:var(--tx-primary)">BUG-24</b> — Cursor pagination resets on the '
       +     'second page. It has completed 4 of 6 planned operations.</p>'
       +   '<div class="applied"><span class="h">Already applied</span>'
       +     '<div class="f">src/api/tasks.ts<em>+2 &minus;1</em></div>'
@@ -1960,7 +2117,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
                'Custom fields','Models &amp; routing','Usage limits','Schedules'];
     return '<div class="rail">'
       + '<div class="facet-head" style="cursor:default"><span class="caret">&#9662;</span>Settings'
-      +   '<span class="src">task-manager</span></div>'
+      +   '<span class="src">paim</span></div>'
       + '<div class="snav">'
       +   items.map(function(i){ return '<a href="#"'+(i===active?' class="on"':'')+'>'
           +i+'</a>'; }).join('')
@@ -1979,7 +2136,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
     var dd = '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" '
       + 'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
       + '<path d="M4 6.5L8 10.5L12 6.5"/></svg>';
-    var pats = ['git push','git commit','rm *','npm publish','curl *','*.env','docker *']
+    var pats = ['git push*','git commit*','rm *','npm publish*','curl *','*.env','docker *']
       .map(function(p){ return '<span class="apat">'+p+' <s>&#10005;</s></span>'; }).join('');
     return '<div class="settings" style="max-width:680px;gap:22px">'
 
@@ -1988,7 +2145,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       +     '<span class="sel">Node.js'+dd+'</span></div>'
       +   '<div class="srow"><label>Workspace path'
       +     '<span class="sub">Runs and docs are confined to this root</span></label>'
-      +     '<span class="pathfield">~/Projects/task-manager<span class="ok">&#10003; found</span></span></div>'
+      +     '<span class="pathfield">~/Projects/paim<span class="ok">&#10003; found</span></span></div>'
       +   '<div class="srow"><label>Docs folder</label>'
       +     '<span class="pathfield">docs/<span class="ok">&#10003; 12 files</span></span></div>'
       + '</div>'
@@ -2008,9 +2165,9 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       +     'it asks the questions, runs the tests, performs the review. Choose which '
       +     'stages this project uses; the order is fixed.</p>'
       +   '<div class="pipe">'
-      +     stage('Backlog','',true,true)
-      +     stage('Open questions','Claude asks what it couldn&rsquo;t infer',true)
-      +     stage('Design','Options presented before implementation',true)
+      +     stage('Backlog','',true)
+      +     stage('Open questions','Claude asks what it couldn&rsquo;t infer',true,true)
+      +     stage('Design','HTML mockups presented before implementation',true,true)
       +     stage('Ready','',true,true)
       +     stage('Executing','',true,true)
       +     stage('Testing','Regression suite + task tests',true)
@@ -2040,7 +2197,8 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       +     'neither will notice.</p>'
       +   '<div class="srow"><label>Agents at a time'
       +     '<span class="sub">Counts every agent writing to this workspace, including '
-      +     'an epic&rsquo;s subtask agents. Everything else queues.</span></label>'
+      +     'an epic&rsquo;s subtask agents. The epic scheduler doesn&rsquo;t count &mdash; '
+      +     'it doesn&rsquo;t write. Everything else queues.</span></label>'
       +     '<span class="sel" style="min-width:96px">1'+dd+'</span></div>'
       +   '<p class="hint">Raise it only when the tasks running together touch different '
       +     'files &mdash; most often an epic whose subtasks are in separate modules. '
@@ -2056,8 +2214,8 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       +       '<span>Applies in every mode, including Allow everything. '
       +       'Not overridable per task. There is no approve-anyway.</span></div>'
       +     '<div class="denylist">'
-      +       '<span class="dpat">rm -rf / <s>&#10005;</s></span>'
-      +       '<span class="dpat">git push --force <s>&#10005;</s></span>'
+      +       '<span class="dpat">rm -rf /* <s>&#10005;</s></span>'
+      +       '<span class="dpat">git push --force* <s>&#10005;</s></span>'
       +       '<span class="dpat add">+ Add pattern</span></div>'
       +   '</div>'
       +   '<div class="modes">'
@@ -2111,8 +2269,8 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       +     '<code>size</code> is core because <code>Epic</code> changes what the task '
       +     '<em>is</em>. A field that does that can&rsquo;t be optional per project.</p>'
       +   '<div style="display:flex;flex-direction:column;gap:5px">'
-      +   fieldRow('type','select',pills(['feature','bug','chore','spike']),true,true)
-      +   fieldRow('difficulty','select',pills(['trivial','easy','moderate','hard']),true,true)
+      +   fieldRow('type','select',pills(['feature','bug','chore','spike'])
+                   +' '+muted('options from the predefined pool'),true,true)
       +   fieldRow('layer','select',pills(['api','ui','storage']),false,true)
       +   fieldRow('spike','checkbox',muted('Hidden · 4 tasks still hold a value'),
                    false,false,{dim:true})
@@ -2179,52 +2337,52 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       false, dock(false));
   }
   function docsScreen(){
-    return frame('/p/task-manager/docs/architecture.md',
+    return frame('/p/paim/docs/architecture.md',
       sideDocs()+'<div class="main">'+docPage()+'</div>', false, dock(false));
   }
   function activityScreen(){
-    return frame('/p/task-manager?status=todo,in_progress',
+    return frame('/p/paim?status=todo,in_progress',
       side()+'<div class="main">'+stats()+toolbar('Table')+taskTable({short:true})+'</div>'
       + cancelDialog(), 'fixed', dock(true));
   }
   function settingsScreen(){
-    return frame('/p/task-manager/settings',
+    return frame('/p/paim/settings',
       '<aside class="side">'+wsButton()+docsBtn(false)+snav()+'</aside>'
       + '<div class="main">'+settingsPanel()+'</div>', false, dock(false));
   }
 
   var SCREENS = {
-    table:    withRail('/p/task-manager?status=todo,in_progress',
+    table:    withRail('/p/paim?status=todo,in_progress',
                 toolbar('Table')+taskTable({epicOpen:true})),
-    select:   withRail('/p/task-manager?status=todo,in_progress',
-                toolbar('Table')+taskTable({checked:['TM-14','TM-5','TM-7']})
+    select:   withRail('/p/paim?status=todo,in_progress',
+                toolbar('Table')+taskTable({checked:['CHORE-14','FEAT-5','FEAT-7']})
                 + bulkBar()),
-    epic:     withRail('/p/task-manager/t/TM-20', toolbar('Table')+epicPage()),
-    compose:  focused('/p/task-manager/new', 'All tasks', compose()),
+    epic:     withRail('/p/paim/t/FEAT-20', toolbar('Table')+epicPage()),
+    compose:  focused('/p/paim/new', 'All tasks', compose()),
     docs:     docsScreen(),
     activity: activityScreen(),
-    switcher: withRail('/p/task-manager', toolbar('Table')+taskTable(), '<div class="scrim" style="z-index:5"></div>'+wsMenu()),
-    detail:   withRail('/p/task-manager/t/TM-3',
+    switcher: withRail('/p/paim', toolbar('Table')+taskTable(), '<div class="scrim" style="z-index:5"></div>'+wsMenu()),
+    detail:   withRail('/p/paim/t/FEAT-3',
                 taskView('overview','Executing','',tvOverview())),
-    questions:withRail('/p/task-manager/t/TM-3/questions',
+    questions:withRail('/p/paim/t/FEAT-3/questions',
                 taskView('questions','Open questions','q',tvQuestions(),
                   {run:false,sideStatus:'Open questions'})),
-    design:   withRail('/p/task-manager/t/TM-3/design',
+    design:   withRail('/p/paim/t/FEAT-3/design',
                 taskView('design','Design','des',tvDesign(),
                   {run:false,sideStatus:'Design'})),
-    run:      withRail('/p/task-manager/t/TM-3/run',
+    run:      withRail('/p/paim/t/FEAT-3/run',
                 taskView('run','Executing','',tvRun(),{sideStatus:'Executing'})),
-    tests:    withRail('/p/task-manager/t/TM-3/tests',
+    tests:    withRail('/p/paim/t/FEAT-3/tests',
                 taskView('tests','Testing','test',tvTests(),{sideStatus:'Testing'})),
-    review:   withRail('/p/task-manager/t/TM-3/review',
+    review:   withRail('/p/paim/t/FEAT-3/review',
                 taskView('review','Manual review','rev',tvReview(),
                   {sideStatus:'Manual review'})),
-    codereview: withRail('/p/task-manager/t/TM-3/review/code',
+    codereview: withRail('/p/paim/t/FEAT-3/review/code',
                 taskView('review','Manual review','rev',tvCodeReview(),
                   {sideStatus:'Manual review'})),
     home:     frame('/', home(), 'nosidebar', dock(false)),
     /* The field editor is a settings section, so it uses the settings rail. */
-    fields:   frame('/p/task-manager/settings/fields',
+    fields:   frame('/p/paim/settings/fields',
                 '<aside class="side">'+wsButton()+docsBtn(false)+snav('Custom fields')+'</aside>'
                 + '<div class="main">'+settings()+'</div>', '', dock(false)),
     settings: settingsScreen()

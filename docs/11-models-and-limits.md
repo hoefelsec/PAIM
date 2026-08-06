@@ -7,26 +7,26 @@ task. Both are normally `null`, which means "the service selects the value".
 
 ### The routing configuration
 
-The project nominates one `select` field as the routing field. The project then
-maps the options of that field.
+The project nominates one routing field. The field is `size` or any custom
+`select` field. The project then maps the values of that field.
 
 ```jsonc
 "modelRouting": {
-  "field": "difficulty",             // any select field, or null
+  "field": "size",                   // size, a custom select field, or null
   "map": {
-    "trivial":  { "model": "claude-haiku-4-5", "effort": "low"    },
-    "easy":     { "model": "claude-sonnet-5",  "effort": "medium" },
-    "moderate": { "model": "claude-opus-5",    "effort": "high"   },
-    "hard":     { "model": "claude-opus-5",    "effort": "xhigh"  }
+    "XS": { "model": "claude-haiku-4-5", "effort": "low"    },
+    "S":  { "model": "claude-sonnet-5",  "effort": "medium" },
+    "M":  { "model": "claude-opus-5",    "effort": "high"   },
+    "L":  { "model": "claude-opus-5",    "effort": "xhigh"  },
+    "XL": { "model": "claude-opus-5",    "effort": "xhigh"  }
   },
-  "fallback":     { "model": "claude-opus-5", "effort": "high" },
-  "orchestrator": { "model": "claude-opus-5", "effort": "max"  }
+  "fallback": { "model": "claude-opus-5", "effort": "high" }
 }
 ```
 
-`difficulty` is a custom field. Therefore the service cannot hard-code the
-routing to it. The project nominates the field. This rule matches the rule for
-table columns and for filter facets: the schema drives the product.
+The service cannot hard-code the routing to one field, because most candidate
+fields are custom. The project nominates the field. This rule matches the rule
+for table columns and for filter facets: the schema drives the product.
 
 A project with no routing field sends every task to `fallback`.
 
@@ -37,9 +37,8 @@ A project with no routing field sends every task to `fallback`.
   styles.
 - A change to the routing field re-routes the task, unless the user fixed the
   value on that task.
-- The orchestrator of an epic uses `modelRouting.orchestrator`. It normally uses
-  a higher level than the workers. To plan across seven child tasks is a harder
-  problem than each single task.
+- The orchestrator of an epic is a scheduler, not a model. It has no routing
+  entry. See [09 — AI run](09-ai-run.md).
 
 ### Available models
 
@@ -65,39 +64,47 @@ meaning without the model that spends it.
 
 ---
 
-## Usage limits
+## Usage metering
 
-The service uses the credentials of the user. Those credentials have usage
-windows. The stats band shows three windows.
+The service meters its own runs. Each run records `inputTokens`,
+`outputTokens`, and `costUsd`. See [09 — AI run](09-ai-run.md). The meters and
+the caps read these records and nothing else.
 
-| Window | Content |
+The account of the user also has usage windows on the side of Anthropic. The
+service has no confirmed source for that data. This is an open question. The
+service does not build on account-level data until the question is closed. See
+[15 — Open questions](15-open-questions.md).
+
+The stats band shows three windows.
+
+| Window | Definition |
 |---|---|
-| **5-hour** | The short window. It resets continuously. |
-| **Weekly** | The weekly total for all models. |
-| **Fable** | The separate total for `claude-fable-5`. |
+| **5-hour** | The window starts at the first run after the previous window ends. It ends 5 hours after that start. |
+| **Weekly** | The window starts on Monday at 00:00 in the timezone of the service. |
+| **Fable** | The tokens of `claude-fable-5` inside the weekly window. |
 
 ## Caps
 
-Each meter has a **cap marker**. The user moves the marker. The cap is below the
-hard limit.
+A cap is a token budget for one project and one window. The user sets it in
+project settings. A project without a cap has no limit from the service.
 
 ```
 PUT /api/projects/:project/caps
-{ "fiveHour": 70, "weekly": 85, "fable": 50 }
+{ "fiveHour": 2000000, "weekly": 10000000, "fable": 2000000 }
 ```
 
-**The service stops runs at the cap, not at the hard limit.** The purpose is to
-keep capacity for other work. The user decides that this project can use 70% of
-the window and no more.
+**The service stops runs at the cap.** The purpose is to keep capacity for
+other work. The user decides the budget of this project, and the service
+enforces it.
 
 ### Rules
 
 - Caps are per project. A test project can have a low cap.
 - A cap **stops a new run**. The API returns `409 BUDGET_CAP_REACHED` with the
-  window and the reset time.
+  window and the time when the window ends.
 - A cap **pauses a running run**. The run pauses at the end of the current
   operation. It never pauses in the middle of an operation.
-- A paused run **resumes automatically** when the window resets. The run keeps
+- A paused run **resumes automatically** when the window ends. The run keeps
   its context and its position.
 - The Fable cap applies to routing. When the Fable cap is reached, a task that
   routes to `claude-fable-5` cannot start. Tasks that route to other models

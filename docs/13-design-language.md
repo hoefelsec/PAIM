@@ -94,11 +94,11 @@ because a schema can grow without limit and a palette cannot.
 | Dimension | Shape | Values |
 |---|---|---|
 | Priority | Bars that grow in **height** | 0 to 3 bars |
-| Difficulty | Dots that fill in **count**. Empty steps are rings. Filled steps are discs. | 1 to 4 of 4 |
-| Type | A different silhouette for each value | feature, bug, chore, spike |
+| Size | Dots that fill in **count**. Empty steps are rings. Filled steps are discs. | `XS` to `XL`: 1 to 5 of 5. `Epic` has its own mark. |
+| Type | A different silhouette for each pool option (see [03](03-custom-fields.md)) | feature, bug, chore, spike, debt |
 | Status | A ring that fills as work progresses | ring, half ring, disc |
 
-Priority and difficulty are both scales. They use different shape languages, so
+Priority and size are both scales. They use different shape languages, so
 a reader does not confuse them.
 
 ## Type
@@ -111,7 +111,7 @@ Mono    ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace
 ```
 
 **Monospace marks an identifier.** The rule is exact: if the text is monospace,
-the user can put it in a URL or a JSON key. Examples: `TM-14`, `difficulty`,
+the user can put it in a URL or a JSON key. Examples: `FEAT-14`, `layer`,
 `executing`.
 
 ### Scale

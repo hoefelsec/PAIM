@@ -59,7 +59,9 @@ commit.
 The project selects which statuses it uses. The order is fixed. See
 [04 — Status pipeline](04-status-pipeline.md).
 
-`ready`, `executing`, and `done` are required. The interface marks them.
+`open_questions`, `design`, `ready`, `executing`, and `done` are required. The
+interface marks them. A task skips `open_questions` and `design` when it does
+not need them. See [04 — Status pipeline](04-status-pipeline.md).
 
 ## Tests
 
@@ -78,6 +80,10 @@ The framework controls how the service reads the results:
   shows one row for each test, with a name and a duration.
 - `custom`: the service reads the exit code and the raw output. The tests table
   shows one row for each `TestDef`.
+
+Release 1 parses the structured report of `vitest` only. The other known
+frameworks use the `custom` path until release 1.5. See
+[14 — Scope and operations](14-scope-and-operations.md).
 
 ```
 TestDef {
@@ -98,7 +104,8 @@ maxConcurrentRuns    1
 ```
 
 One number, default 1. It counts all agents that write to this workspace,
-including the child agents of an epic. See
+including the child agents of an epic. The epic orchestrator does not count. It
+is a scheduler and does not write. See
 [10 — Execution safety](10-execution-safety.md).
 
 The settings text states the reason: every agent writes to the same filesystem.
@@ -126,7 +133,7 @@ effort. See [11 — Models and limits](11-models-and-limits.md).
 
 ## Usage limits
 
-Three caps, one for each window. See
+Three token budgets, one for each window. See
 [11 — Models and limits](11-models-and-limits.md).
 
 The interface hides the Fable cap when `allowedModels` excludes

@@ -72,10 +72,6 @@ service does not produce a plan of all operations first.
 A plan that the model writes before it reads any file is a guess. To review such
 a plan costs attention and gives little value.
 
-**Dry run** covers the other case. A dry run executes the agent in the normal
-way. It shows every operation and every file difference. It applies nothing. Dry
-run is a control on one run and a default in project settings.
-
 ## Restore
 
 Each run captures a **restore point** before its first write.
@@ -139,20 +135,23 @@ The cancel dialog offers *Keep running*, *Cancel and keep the changes*, and
 
 To run one task starts one agent. To run an epic starts an **orchestrator**.
 
-The orchestrator reads the epic and its children. It starts one agent for each
-child task.
+The orchestrator is a scheduler inside the service. It is not a model and it
+uses no tokens. It reads the children and their dependencies. It computes a
+dependency order. It starts one agent for each child task, in that order.
 
-- The orchestrator uses its own model, normally one level above the workers. The
-  setting is `modelRouting.orchestrator`. See
-  [11 — Models and limits](11-models-and-limits.md).
 - Each child task has its own run record, its own operations, and its own
   approvals. One failure belongs to one child task.
-- The orchestrator obeys `dependsOn` between children. See
-  [05 — Dependencies](05-dependencies.md).
-- `maxConcurrentRuns` limits the child agents. The orchestrator and its children
-  count as separate agents against that one number. The default is 1, so child
-  tasks run in sequence. See
-  [10 — Execution safety](10-execution-safety.md).
+- The orchestrator starts a child only when all tasks in that child's
+  `dependsOn` are `done`. See [05 — Dependencies](05-dependencies.md).
+- `maxConcurrentRuns` limits the child agents. The orchestrator does not count,
+  because it does not write. The default is 1, so child tasks run in sequence.
+  See [10 — Execution safety](10-execution-safety.md).
+- A child task does not use `open_questions` and does not use `design`. The
+  epic carries the questions and the design decisions. See
+  [04 — Status pipeline](04-status-pipeline.md).
+- `childManualReview` on the epic decides whether the children pass
+  `manual_review`. When it is false, a child skips that gate. The epic itself
+  always passes the gates that the project enables.
 - Approvals show which child task raised them. The dock shows child runs under
   the parent run.
 - The safety policy of the epic applies to all children. When the epic policy
@@ -160,6 +159,8 @@ child task.
   receive more permission from its parent.
 - To cancel the orchestrator stops new work and cancels the running children.
   Completed child tasks stay complete.
+- When all children are resolved, the epic run ends. The epic moves to the next
+  enabled status after `executing`. See [02 — Data model](02-data-model.md).
 
 **The user can always run one child task alone.** The child runs as a normal
 single run. The orchestrator does not start.
@@ -194,6 +195,17 @@ copies of itself.
 
 The service records the skipped firing in the schedule history. The user sees
 which firings did not start and why.
+
+## Service restart
+
+A run does not survive a stop of the service process.
+
+At start, the service inspects every run that is not in a terminal status.
+
+- A run in `planning`, `awaiting_approval`, `executing`, `paused`, or
+  `held_budget` moves to `failed` with the reason `service_stopped`. The
+  changes of the run stay in the workspace. Restore stays available.
+- A run in `queued` stays in the queue. It starts in its turn.
 
 ## Credentials
 

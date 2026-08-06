@@ -6,8 +6,8 @@ A project holds tasks. The slug identifies the project in all API paths.
 
 ```
 id             uuid
-slug           "task-manager"      unique, in URLs, permanent after creation
-name           "Task Manager"      shown to the user, editable
+slug           "paim"      unique, in URLs, permanent after creation
+name           "PAIM"      shown to the user, editable
 description    text, markdown
 icon           one emoji or one icon name
 color          one of 8 identity colours (see 13)
@@ -24,14 +24,15 @@ regressionTests TestDef[]          tests that every task must pass (see 04)
 safety         SafetyPolicy        permissions for runs (see 10)
 modelRouting   RoutingConfig       model and effort per task (see 11)
 allowedModels  string[]            models this project may use
-usageCaps      { fiveHour, weekly, fable }   percentages, 0 to 100 (see 11)
+usageCaps      { fiveHour, weekly, fable }   token budgets (see 11)
 maxConcurrentRuns  integer, default 1   agents that write to this workspace (see 10)
 trashRetentionDays integer, default 30  (see 06)
 createdAt / updatedAt / archivedAt
 ```
 
-The service reads `version` from the workspace at each request. The source
-depends on `type`:
+The service reads `version` from the workspace and caches the value. It reads
+the source again when the modification time of the source file changes. The
+source depends on `type`:
 
 | Type | Source of the version |
 |---|---|
@@ -50,7 +51,7 @@ the default lists.
 
 ```
 id          uuid
-key         "TM-14"               shown to the user; prefix plus counter
+key         "FEAT-14"             the type prefix plus a counter (see "Task keys")
 projectId   uuid
 title       string                required
 description text, markdown
@@ -66,6 +67,7 @@ fields      { key: value }        values for the custom fields (see 03)
 model       string, or null       null means the service selects it (see 11)
 effort      low | medium | high | xhigh | max, or null
 safety      SafetyPolicy, or null null means the project's policy applies
+childManualReview  boolean, or null   epics only; children pass manual_review (see 09)
 schedule    Schedule, or null     see 09
 dependsOn   uuid[]                see 05
 questions   Question[]            see 04
@@ -79,6 +81,17 @@ createdAt / updatedAt / closedAt
 ```
 
 `title` is the only required field.
+
+## Task keys
+
+The key is the type prefix plus a counter.
+
+- The prefix comes from the task's `type` value at creation. `feature` gives
+  `FEAT`. `bug` gives `BUG`. See [03 — Custom fields](03-custom-fields.md).
+- A task without a `type` value uses the prefix `TASK`.
+- The counter is one sequence for the whole project. Keys do not collide
+  across prefixes.
+- The key is permanent. A later change of `type` does not change the key.
 
 ## Size
 
@@ -106,8 +119,10 @@ the size away from `Epic` while the epic has children.
 
 - **One level.** A child task cannot be an epic.
 - **Status.** The user sets the status of an epic. The service makes one
-  automatic change: the epic moves to `done` when all children are resolved. The
-  epic leaves `done` if a child re-opens.
+  automatic change: when all children are resolved, the epic run ends and the
+  epic moves to the next enabled status after `executing`, for example
+  `testing`. The epic then passes its own gates in the normal way. If a child
+  re-opens, the epic returns to `executing`.
 - **A cancelled child is resolved.** A cancelled child does not block the epic. A
   cancellation is a decision, not unfinished work.
 - **Progress.** The epic reports the count of resolved children, for example
@@ -119,6 +134,10 @@ the size away from `Epic` while the epic has children.
   children, and that result is wrong.
 - **Children are normal tasks.** They appear in the table. They match filters.
   The user can run one child alone. See [09 — AI run](09-ai-run.md).
+- **Children skip `open_questions` and `design`.** The epic carries the
+  questions and the design decisions for all of its children. A child task
+  enters the pipeline at `ready`. See
+  [04 — Status pipeline](04-status-pipeline.md).
 
 ## Comment
 

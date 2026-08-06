@@ -15,7 +15,7 @@ The service must do all of this before release 1.
 
 - The task table with the temporary filter rail and saved views.
 - The task view with tabs.
-- Icons for priority, type, and difficulty.
+- Icons for priority, type, and size.
 - The stats band with the three usage meters and their caps.
 - The activity dock with pause and cancel.
 - Selection and the bulk action bar.
@@ -28,14 +28,15 @@ The service must do all of this before release 1.
 - Runs with the Agent SDK, the approval control, differences, and run history.
 - Restore points.
 - Model routing from a nominated field.
-- Epic orchestration.
+- Epic runs: the orchestrator scheduler and child runs.
 
 **Pipeline gates**
 
 - Open questions.
-- Design options.
-- Tests: the regression suite and task tests.
-- AI review and manual review.
+- Design options with HTML mockups.
+- Tests: the regression suite and task tests. Structured report for `vitest`;
+  the other frameworks use the `custom` path.
+- AI review of the differences and the test output. Manual review.
 
 **Other**
 
@@ -55,6 +56,11 @@ The service must do all of this before release 1.
 - File attachments.
 - Compose in place: describe a change to an existing task in free text.
 - A reusable prompt prefix for each project.
+- Computer use in `ai_review`: Claude opens the application views.
+- Structured test reports for `jest`, `pytest`, `go`, and `cargo`.
+- The field types `datetime`, `person`, and `task_ref`.
+- Account-level usage meters, if the open question closes. See
+  [15 — Open questions](15-open-questions.md).
 
 ## Not planned
 
@@ -68,7 +74,7 @@ Automation rules. Webhooks. Task templates. Import from Jira or ClickUp.
 | Layer | Choice |
 |---|---|
 | Language | TypeScript on the server and the client. The `Task`, `FieldDef`, and `Run` types are shared. |
-| Server | Fastify. It serves the REST API, the built interface, and the event streams on one port. |
+| Server | Fastify. It serves the REST API, the built interface, and the event streams on one port. It binds to `127.0.0.1:4400`. See [10 §1](10-execution-safety.md). |
 | Storage | SQLite through `better-sqlite3`. JSON columns hold the `fields` object. |
 | Validation | Zod. The service builds one schema per project and caches it. |
 | AI — compose | `@anthropic-ai/sdk`. `messages.parse()` with `zodOutputFormat`. Model `claude-opus-5`. |

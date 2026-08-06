@@ -22,7 +22,7 @@ Response:
 ```jsonc
 {
   "draft":     { "title": "…", "description": "…", "priority": "urgent",
-                 "size": "L", "fields": { "type": "bug", "difficulty": "moderate" },
+                 "size": "L", "fields": { "type": "bug", "layer": "backend" },
                  "dependsOn": [ … ] },
   "questions": [ … ],      // if Claude needs more information
   "warnings":  [ "No value inferred for assignee" ]
@@ -35,7 +35,7 @@ The service builds the extraction schema from the project's `fieldSchema`. This
 is the same source that validates writes. See
 [03 — Custom fields](03-custom-fields.md).
 
-A workspace with a `difficulty` field receives a difficulty value. A workspace
+A workspace with a `layer` field receives a layer value. A workspace
 without that field never sees it. The service needs no prompt text for each
 project.
 
@@ -128,8 +128,8 @@ Response:
 
 ```jsonc
 {
-  "order":      [ "TM-3", "TM-12", … ],
-  "rationale":  [ { "key": "TM-3", "because": "…" } ],
+  "order":      [ "FEAT-3", "BUG-12", … ],
+  "rationale":  [ { "key": "FEAT-3", "because": "…" } ],
   "computedAt": "…"
 }
 ```

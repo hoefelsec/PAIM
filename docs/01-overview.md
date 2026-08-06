@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Task Manager holds and executes the work of one person across many projects. It
-runs on one machine. One process serves the REST API, the HTML interface, and
-the event streams on one port.
+PAIM is the Project AI Manager. It holds and executes the work of one person
+across many projects. It runs on one machine. One process serves the REST API,
+the HTML interface, and the event streams on one port.
 
 ## Users of the service
 
@@ -24,6 +24,20 @@ Claude has a different position. Claude changes files and runs commands.
 Therefore Claude has an additional boundary: a workspace path for each project
 and an approval policy. See [10 — Execution safety](10-execution-safety.md).
 
+## The service is reachable only from this machine
+
+The service binds to `127.0.0.1:4400`. It does not bind to `0.0.0.0`. No other
+machine reaches the port.
+
+The browser of the user is on this machine. Therefore the machine boundary
+alone does not stop a hostile web page. The service adds three header checks on
+every request: `Host`, `Origin`, and `Content-Type`. These checks stop DNS
+rebinding and cross-site requests. The API has no token. See
+[10 — Execution safety](10-execution-safety.md).
+
+A program on another machine cannot use this service. That limit is part of the
+design.
+
 ## Size of the data
 
 | Item | Maximum | Typical |
@@ -32,8 +46,9 @@ and an approval policy. See [10 — Execution safety](10-execution-safety.md).
 | Tasks in one project | 1000 | 100 open |
 | Total tasks | 100 000 | — |
 
-The service holds the active data in memory. Any storage engine is sufficient at
-this size. See [14 — Scope and operations](14-scope-and-operations.md).
+SQLite is the single store of the data. The service has no separate cache of
+the tasks. The size is small for a local database. See
+[14 — Scope and operations](14-scope-and-operations.md).
 
 ## Out of scope
 

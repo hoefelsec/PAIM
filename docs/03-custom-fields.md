@@ -20,23 +20,44 @@ Each task has a small set of core fields and one open object.
 
 ```jsonc
 {
-  "key":         "difficulty",     // snake_case, permanent
-  "label":       "Difficulty",     // shown to the user
+  "key":         "layer",          // snake_case, permanent
+  "label":       "Layer",          // shown to the user
   "type":        "select",
-  "options":     ["trivial", "easy", "moderate", "hard"],   // select types only
+  "options":     ["frontend", "backend", "infra", "docs"],  // select types only
   "required":    false,
   "default":     null,
   "order":       3,
   "showInTable": true,             // the field is a column in the table
   "showAsFacet": true,             // the field is a filter in the left rail
-  "description": "How hard the work is"
+  "description": "The part of the stack that the work changes"
 }
 ```
 
 ### Field types
 
-`text`, `long_text`, `number`, `checkbox`, `date`, `datetime`, `select`,
-`multi_select`, `url`, `person`, `task_ref`.
+Release 1: `text`, `long_text`, `number`, `checkbox`, `date`, `select`,
+`multi_select`, `url`.
+
+Release 1.5 adds `datetime`, `person`, and `task_ref`. See
+[14 — Scope and operations](14-scope-and-operations.md).
+
+### The `type` field
+
+`type` is a custom field with one special rule: its options come from a
+predefined pool. A project selects the options that it uses. A project cannot
+invent an option.
+
+| Option | Key prefix |
+|---|---|
+| `feature` | `FEAT` |
+| `bug` | `BUG` |
+| `chore` | `CHORE` |
+| `spike` | `SPIKE` |
+| `debt` | `DEBT` |
+
+The pool is fixed because two things attach to an option: a silhouette in the
+interface (see [13 — Design language](13-design-language.md)) and a key prefix
+(see [02 — Data model](02-data-model.md)). Both need a known set of values.
 
 ### Two switches, two surfaces
 
@@ -45,9 +66,9 @@ of filters are different sets.
 
 | Field | Column | Facet |
 |---|---|---|
-| `difficulty` | yes | yes |
+| `type` | yes | yes |
 | `layer` | no | yes |
-| `spike` | no | no |
+| `estimate` | no | no |
 
 ## Rules for change
 
@@ -79,7 +100,7 @@ The service builds these from `fieldSchema`. It does not hard-code them.
 | Write validation | The service builds a Zod schema from `fieldSchema` and caches it. |
 | AI extraction | The compose step uses the same Zod schema. See [08](08-ai-compose.md). |
 
-One project has `difficulty`. Another project does not. Both projects work
+One project has `layer`. Another project does not. Both projects work
 without a change to the code.
 
 ## Validation cache
