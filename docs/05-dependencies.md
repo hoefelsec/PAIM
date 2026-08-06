@@ -22,6 +22,14 @@ The compose step finds dependencies when it drafts the task. See
 
 The user can add and remove dependencies at any time.
 
+### Dependencies stay inside one project
+
+A dependency points to a task in the same project. The service refuses a
+dependency that crosses projects.
+
+A cross-project dependency needs queue rules across projects and a display for a
+task that the current workspace does not hold. Release 1 does not include them.
+
 ### Effect on the epic orchestrator
 
 The orchestrator obeys `dependsOn` between child tasks. It starts a child task
@@ -64,13 +72,12 @@ The service does not rewrite a task without a command from the user.
 
 | Value | Condition |
 |---|---|
-| `time` | A long period passed after `evaluatedAt`. |
+| `time` | 14 days passed after `evaluatedAt`. |
 | `dependency` | A dependency of this task reached `done`. |
 | `answers` | The user answered the open questions of this task. |
-| `project_change` | The project changed by a large amount after `evaluatedAt`. |
+| `project_change` | 10 or more tasks in the project reached `done` after `evaluatedAt`. |
 
-The exact threshold for `time` and for `project_change` is an open question. See
-[15 — Open questions](15-open-questions.md).
+Both numbers are the first values. Change them after a test with real data.
 
 ## Related documents
 

@@ -14,7 +14,7 @@ Route: `/p/:project/settings`. The left rail holds the list of sections.
 | Models and routing | Permitted models, the routing map |
 | Usage limits | The three caps |
 | Schedules | All scheduled tasks in this project |
-| Danger zone | Archive, delete, reset the schema |
+| Danger zone | The trash, archive, delete, reset the schema |
 
 ## General
 
@@ -65,6 +65,20 @@ The project selects which statuses it uses. The order is fixed. See
 
 The regression suite runs for every task that enters `testing`.
 
+**Test framework** is a project setting. The tool manages the project, so it
+knows the framework.
+
+```
+testFramework   jest | vitest | pytest | go | cargo | custom
+```
+
+The framework controls how the service reads the results:
+
+- A known framework: the service reads the structured report. The tests table
+  shows one row for each test, with a name and a duration.
+- `custom`: the service reads the exit code and the raw output. The tests table
+  shows one row for each `TestDef`.
+
 ```
 TestDef {
   id
@@ -74,12 +88,17 @@ TestDef {
 }
 ```
 
-The exact format of a test definition is an open question. See
-[15 — Open questions](15-open-questions.md).
+Claude writes the task-specific tests during a run. The user can edit them. See
+[04 — Status pipeline](04-status-pipeline.md).
 
 ## Concurrency
 
-Two numbers, both default 1. See
+```
+maxConcurrentRuns    1
+```
+
+One number, default 1. It counts all agents that write to this workspace,
+including the child agents of an epic. See
 [10 — Execution safety](10-execution-safety.md).
 
 The settings text states the reason: every agent writes to the same filesystem.
@@ -109,6 +128,17 @@ effort. See [11 — Models and limits](11-models-and-limits.md).
 
 Three caps, one for each window. See
 [11 — Models and limits](11-models-and-limits.md).
+
+The interface hides the Fable cap when `allowedModels` excludes
+`claude-fable-5`.
+
+## Danger zone
+
+The section shows the count of tasks in the trash. A deleted task stays in the
+trash for `trashRetentionDays`. The default is 30 days. After that period the
+service deletes the task permanently.
+
+The section also holds Archive project, Delete project, and Reset schema.
 
 ---
 

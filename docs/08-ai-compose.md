@@ -66,14 +66,26 @@ empty and why. The service does not guess a value.
 Add `?commit=true` to create the task without review. Scripts use this
 parameter.
 
-### Questions and dependencies
+### The compose step selects the first status
 
-If Claude needs more information, the response contains questions. The task
-enters `open_questions`. See
-[04 — Status pipeline](04-status-pipeline.md).
+The compose step decides which gates the task needs.
 
-The same pass finds dependencies on other tasks. See
+| Result | First status of the task |
+|---|---|
+| Claude returns questions | `open_questions` |
+| Claude reports that a decision must precede the work | `design` |
+| Neither of the above | `ready` |
+
+A project can enable `open_questions` and `design`. A task uses them only when
+it needs them. See [04 — Status pipeline](04-status-pipeline.md).
+
+### Dependencies and tests
+
+The same pass finds dependencies on other tasks in the same project. See
 [05 — Dependencies](05-dependencies.md).
+
+The same pass also drafts the task-specific tests. See
+[04 — Status pipeline](04-status-pipeline.md).
 
 ---
 

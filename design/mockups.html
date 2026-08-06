@@ -715,7 +715,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
 
 <div class="wrap">
   <header class="masthead">
-    <p class="eyebrow">Design language &amp; screen mockups · rev J</p>
+    <p class="eyebrow">Design language &amp; screen mockups · rev K</p>
     <h1>Task&nbsp;Manager</h1>
     <p class="lede">An AI-first, local-first task service. One process on <code>localhost</code>: a REST API for your other services, an HTML UI for you, and Claude both writing tasks and <em>doing</em> them.</p>
     <div class="decisions">
@@ -1091,13 +1091,14 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
   <section>
     <div class="sec-head prose">
       <p class="eyebrow">Open questions</p>
-      <h2>Twelve decisions remain</h2>
-      <p>The specification is complete enough to build from, but twelve choices are still unmade — thresholds, formats, and one genuine contradiction. They are written up with options and a recommendation in <code>docs/15-open-questions.md</code>.</p>
-      <p>The contradiction is worth naming here. <code>maxConcurrentRuns</code> defaults to 1 because two agents in one workspace overwrite each other's files. <code>maxOrchestratorWorkers</code> also defaults to 1, but raising it puts several agents in that same workspace — which is the exact situation the first setting exists to prevent. Two numbers describe one constraint. The recommendation is to keep one.</p>
+      <h2>Nothing outstanding</h2>
+      <p>Every decision is made. The specification lives in <code>docs/</code>, split into fifteen documents with a glossary and a banned-terms table, written in ASD-STE100 Simplified Technical English.</p>
+      <p>Four values are answers rather than conclusions: staleness after 14 days, staleness after 10 completed tasks, 30-day trash retention, and one concurrent agent per project. They are first estimates. <code>docs/15-open-questions.md</code> lists them so a measurement can replace them.</p>
+      <p>The last decision removed a setting rather than adding one. Two numbers described one constraint — the count of agents writing to a single workspace — and a configuration that satisfied both could still corrupt files. <code>maxConcurrentRuns</code> now counts every agent in a project, including an epic's subtask agents.</p>
     </div>
   </section>
 
-  <footer>Task Manager · design language rev J · warm graphite · dark-only by specification</footer>
+  <footer>Task Manager · design language rev K · warm graphite · dark-only by specification</footer>
 </div>
 
 <script>
@@ -1750,7 +1751,7 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       +   '<span class="em"><b>Size</b><span class="pill sz epicsz">Epic</span></span>'
       +   '<span class="em"><b>Orchestrator</b><span class="mdl">claude-opus-5'
       +     '<span class="dot-sep">&middot;</span>max</span></span>'
-      +   '<span class="em"><b>Workers</b><span style="font-size:12.5px">'
+      +   '<span class="em"><b>Agents</b><span style="font-size:12.5px">'
       +     '1 at a time <span class="routed" style="font-size:10px;color:var(--tx-muted)">'
       +     'shared filesystem</span></span></span>'
       + '</div>'
@@ -2019,17 +2020,31 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       +   '</div>'
       + '</div>'
 
+      + '<div class="sgroup"><h3>Tests</h3>'
+      +   '<p class="hint">The tool manages the project, so it knows the framework. '
+      +     'A known framework gives one row per test with a name and a duration; '
+      +     '<code>custom</code> gives the exit code and the raw output.</p>'
+      +   '<div class="srow"><label>Test framework</label>'
+      +     '<span class="sel">Vitest'+dd+'</span></div>'
+      +   '<div class="srow"><label>Regression suite'
+      +     '<span class="sub">Runs for every task that reaches Testing</span></label>'
+      +     '<span class="pathfield">npm test -- --run'
+      +       '<span class="ok">&#10003; 8 tests</span></span></div>'
+      +   '<p class="hint">Claude writes the task-specific tests during a run. '
+      +     'You can edit them on the task.</p>'
+      + '</div>'
+
       + '<div class="sgroup"><h3>Concurrency</h3>'
       +   '<p class="hint">Every agent writes to the same filesystem. Two runs in this '
       +     'workspace at once will interleave edits and clobber each other &mdash; and '
       +     'neither will notice.</p>'
-      +   '<div class="srow"><label>Runs at a time'
-      +     '<span class="sub">Queued otherwise</span></label>'
+      +   '<div class="srow"><label>Agents at a time'
+      +     '<span class="sub">Counts every agent writing to this workspace, including '
+      +     'an epic&rsquo;s subtask agents. Everything else queues.</span></label>'
       +     '<span class="sel" style="min-width:96px">1'+dd+'</span></div>'
-      +   '<div class="srow"><label>Epic subtask agents'
-      +     '<span class="sub">Raise only if subtasks touch disjoint files &mdash; '
-      +     'the tool can&rsquo;t verify that</span></label>'
-      +     '<span class="sel" style="min-width:96px">1'+dd+'</span></div>'
+      +   '<p class="hint">Raise it only when the tasks running together touch different '
+      +     'files &mdash; most often an epic whose subtasks are in separate modules. '
+      +     'The tool can&rsquo;t verify that.</p>'
       +   '<p class="hint">Other projects are unaffected: they write to different '
       +     'workspace roots, so they run alongside this one.</p>'
       + '</div>'

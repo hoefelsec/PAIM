@@ -41,6 +41,8 @@ GET    /api/projects/:project/tasks/:key    read one task
 POST   /api/projects/:project/tasks/:key    partial update
 PATCH  /api/projects/:project/tasks/:key    same as POST
 DELETE /api/projects/:project/tasks/:key    ?hard=true to skip the trash
+GET    /api/projects/:project/trash         tasks in the trash
+POST   /api/projects/:project/trash/:key    restore a task from the trash
 POST   /api/projects/:project/tasks/bulk    { ids[], patch{} }
 ```
 
@@ -144,6 +146,14 @@ GET /api/projects/:project/docs/*path     one rendered file, or one asset
 A run request returns `409 BUDGET_CAP_REACHED` when a cap stops it. The response
 gives the window and the time of the reset. Add `?ignoreCaps=true` to bypass the
 cap.
+
+## The trash
+
+A `DELETE` on a task moves the task to the trash. The task stays there for
+`trashRetentionDays`. The default is 30 days. After that period the service
+deletes the task permanently.
+
+Add `?hard=true` to delete a task at once and skip the trash.
 
 ## Related documents
 

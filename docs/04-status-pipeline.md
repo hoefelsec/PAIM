@@ -46,6 +46,23 @@ the work.
 A task moves forward only when it satisfies the gate. The service has no
 override that skips a gate.
 
+## An enabled status is available, not mandatory
+
+A project enables a set of statuses. A task does not always pass through all of
+them.
+
+**The compose step decides which gates apply to each task.** See
+[08 — AI compose](08-ai-compose.md).
+
+| Result of the compose step | First status of the task |
+|---|---|
+| Claude returns questions | `open_questions` |
+| Claude reports that a decision must precede the work | `design` |
+| Neither of the above | `ready` |
+
+A task therefore skips `open_questions` and `design` when it needs neither. The
+statuses after `executing` always apply when the project enables them.
+
 ---
 
 ## 1. `open_questions`
@@ -97,7 +114,7 @@ task moves to `ready` when Claude reports that the direction is clear.
 ## 3. `testing`
 
 A project defines **regression tests**. All tasks in the project must pass them.
-A task can define **task tests** in addition.
+A task can hold **task tests** in addition.
 
 ```
 TestRun {
@@ -112,6 +129,24 @@ TestRun {
 
 The service runs both sets when the task enters `testing`. The results are a tab
 on the task.
+
+### Where task tests come from
+
+**Claude writes the task tests during the run.** The compose step already
+produces structured output, so a list of tests is one more field on the task.
+
+The user can edit a task test and can add a task test by hand. The source of a
+test does not change how the service runs it.
+
+### How the service reads the results
+
+The project declares its `testFramework`. See
+[12 — Project settings](12-project-settings.md).
+
+| Value of `testFramework` | What the service reads |
+|---|---|
+| A known framework, for example `jest` or `pytest` | The structured report. The table shows one row for each test, with a name and a duration. |
+| `custom` | The exit code and the raw output. The table shows one row for each `TestDef`. |
 
 One failure returns the task to `executing`. The service attaches the output of
 the failed test. The task advances when all tests pass.

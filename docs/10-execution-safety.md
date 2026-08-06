@@ -86,16 +86,20 @@ styles.
 ## 5. Concurrency
 
 ```
-maxConcurrentRuns          1     per project
-maxOrchestratorWorkers     1     child agents in one epic
+maxConcurrentRuns    1     per project. The default is 1.
 ```
 
-Both settings default to 1.
+**One number controls all agents in one project.** This includes the child
+agents of an epic. An orchestrator and its children count as separate agents.
 
 **This is a correctness rule, not a performance setting.** Every agent writes to
 the same filesystem. Two agents in one workspace interleave their writes. They
 overwrite the work of each other. Neither agent detects the problem, because
 each one reads a file that it did not write.
+
+One number describes the real constraint, which is the count of agents that
+write to one workspace. Two numbers for one constraint permit a configuration
+that corrupts files.
 
 ### The boundary is the workspace, not the machine
 
@@ -110,8 +114,12 @@ them into one project.
 
 ### When to raise the limit
 
-Raise `maxOrchestratorWorkers` when the child tasks of an epic change different
-files. The service cannot verify that claim. The settings text states this.
+Raise `maxConcurrentRuns` when the tasks that run together change different
+files. This is most common for an epic whose child tasks touch separate
+modules.
+
+The service cannot verify that the files are separate. The settings text states
+this.
 
 ## 6. Other controls
 

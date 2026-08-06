@@ -112,6 +112,13 @@ banner and no toast.
 A meter in the warning colour on every screen already reports the state. A
 second message is the same fact twice.
 
+### The Fable meter is conditional
+
+The service hides the Fable meter when `allowedModels` excludes
+`claude-fable-5`. A meter for a limit that the project cannot reach is noise.
+
+The other two meters always appear.
+
 ## Related documents
 
 - [09 — AI run](09-ai-run.md)

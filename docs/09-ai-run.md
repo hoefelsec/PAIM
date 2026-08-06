@@ -111,6 +111,19 @@ The interface states this limit at the point of use:
 A run that only edits files restores completely. A run that executed
 `npm install` restores its files and reports that the package stays installed.
 
+### When the service cannot capture a restore point
+
+Two conditions can stop the capture: a file that is too large to snapshot, and a
+workspace that the process cannot read completely.
+
+**The run starts.** The service disables Restore for that run.
+
+The Run tab states the reason in the position of the Restore control. The user
+sees that Restore is not available before the run changes any file.
+
+The service does not refuse the run. A refusal stops work for a reason that the
+user may accept.
+
 ### Cancel and Restore are different actions
 
 | Action | Result |
@@ -136,8 +149,10 @@ child task.
   approvals. One failure belongs to one child task.
 - The orchestrator obeys `dependsOn` between children. See
   [05 — Dependencies](05-dependencies.md).
-- The number of concurrent child agents is `maxOrchestratorWorkers`. The default
-  is 1. See [10 — Execution safety](10-execution-safety.md).
+- `maxConcurrentRuns` limits the child agents. The orchestrator and its children
+  count as separate agents against that one number. The default is 1, so child
+  tasks run in sequence. See
+  [10 — Execution safety](10-execution-safety.md).
 - Approvals show which child task raised them. The dock shows child runs under
   the parent run.
 - The safety policy of the epic applies to all children. When the epic policy
@@ -168,6 +183,17 @@ Schedule {
 
 The schedule belongs to the task. A run from a schedule has
 `trigger: "schedule"` in its record.
+
+### One pending run for each task
+
+**The service skips a firing when the task already has a run in the queue or a
+run in progress.** One task therefore has at most one pending run.
+
+Without this rule, a task that takes longer than its interval builds a queue of
+copies of itself.
+
+The service records the skipped firing in the schedule history. The user sees
+which firings did not start and why.
 
 ## Credentials
 

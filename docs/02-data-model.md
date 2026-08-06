@@ -19,13 +19,14 @@ autoCommit     boolean
 autoPush       boolean
 statuses       string[]            which statuses this project uses (see 04)
 fieldSchema    FieldDef[]          custom fields (see 03)
+testFramework  jest | vitest | pytest | go | cargo | custom   (see 12)
 regressionTests TestDef[]          tests that every task must pass (see 04)
 safety         SafetyPolicy        permissions for runs (see 10)
 modelRouting   RoutingConfig       model and effort per task (see 11)
 allowedModels  string[]            models this project may use
 usageCaps      { fiveHour, weekly, fable }   percentages, 0 to 100 (see 11)
-maxConcurrentRuns       integer, default 1  (see 10)
-maxOrchestratorWorkers  integer, default 1  (see 10)
+maxConcurrentRuns  integer, default 1   agents that write to this workspace (see 10)
+trashRetentionDays integer, default 30  (see 06)
 createdAt / updatedAt / archivedAt
 ```
 
@@ -105,10 +106,17 @@ the size away from `Epic` while the epic has children.
 
 - **One level.** A child task cannot be an epic.
 - **Status.** The user sets the status of an epic. The service makes one
-  automatic change: the epic moves to `done` when all children are done. The
+  automatic change: the epic moves to `done` when all children are resolved. The
   epic leaves `done` if a child re-opens.
-- **Progress.** The epic reports the count of children that are done, for
-  example `3/7 done`. This count is separate from the status.
+- **A cancelled child is resolved.** A cancelled child does not block the epic. A
+  cancellation is a decision, not unfinished work.
+- **Progress.** The epic reports the count of resolved children, for example
+  `3/7 done`. When children are cancelled, it reports both counts, for example
+  `5/7 done, 2 cancelled`. This count is separate from the status.
+- **An epic with no children is valid.** An epic often exists before its
+  children. The progress shows `0/0`. The service does **not** move an empty
+  epic to `done`. The condition "all children are resolved" is true for zero
+  children, and that result is wrong.
 - **Children are normal tasks.** They appear in the table. They match filters.
   The user can run one child alone. See [09 — AI run](09-ai-run.md).
 
