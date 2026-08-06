@@ -61,8 +61,14 @@ cancelled      #55514C
 ## Priority colours
 
 ```
-urgent  #CB6F63     high  #C99A54     medium  #7E9FBE     low  #3A3835
+urgent  #CB6F63     high  #C99A54     medium  #7E9FBE     low  #5F5A54
 ```
+
+`low` is the quietest of the four at 2.7:1 on `bg/base`. It cannot go quieter.
+The priority glyph is a 2 pixel bar, and a bar at the contrast of a hairline is
+invisible. An invisible `low` bar makes `low` and `none` the same picture.
+
+An unfilled bar uses `border/subtle`. It is always darker than `low`.
 
 Brass (`#C99A54`) has two uses: `executing` and `high`. Both values mean the
 same thing: this needs attention now. The shapes differ, so a column never
@@ -81,10 +87,19 @@ exec (bash)               #CB6F63    clay, the same tone as urgent
 
 ## Project identity colours
 
-Eight tones: steel, sage, brass, clay, violet, teal, rose, grey.
+Eight tones:
+
+```
+steel   #6FA8CE     sage   #6FA57C     brass  #C99A54     clay   #CB6F63
+violet  #A78BC5     teal   #69B5AD     rose   #C37994     grey   #938D85
+```
+
+Each tone has a contrast between 5.3:1 and 7.9:1 on `bg/base`. A new tone must
+stay in this band.
 
 The interface shows a project colour as a tinted icon square and as a progress
-bar. It never shows a project colour as a bar on the edge of a card.
+bar. The tint is the tone at 17%. It never shows a project colour as a bar on
+the edge of a card.
 
 ## Icons and shapes
 

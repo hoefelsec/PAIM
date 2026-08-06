@@ -32,6 +32,19 @@ glossary.
 
 Rendered screen mockups: [`design/mockups.html`](design/mockups.html).
 
+The design system is in `src/`. Start the gallery with `npm run dev`.
+
+| File | Holds |
+|---|---|
+| [`src/styles/tokens.css`](src/styles/tokens.css) | Every colour, size, and duration. The only file with a literal value. |
+| [`src/ui/vocabulary.ts`](src/ui/vocabulary.ts) | The values the interface draws, from the specification. |
+| [`src/ui/shapes.tsx`](src/ui/shapes.tsx) | The shape language: priority, size, type, status. |
+| [`src/ui/controls.tsx`](src/ui/controls.tsx) | Button, chip, pill, meter, facet, tabs. |
+| [`src/gallery/Gallery.tsx`](src/gallery/Gallery.tsx) | Every primitive at its real size on the real ground. |
+
+`tokens.css` transcribes [`docs/13-design-language.md`](docs/13-design-language.md).
+If the two disagree, the document is correct.
+
 ## Language
 
 The documents use ASD-STE100 Simplified Technical English. See the language
