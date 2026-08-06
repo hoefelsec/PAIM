@@ -1,0 +1,2331 @@
+<meta charset="utf-8">
+<title>Task Manager — Design Language &amp; Mockups</title>
+
+<style>
+:root{
+  /* ground — warm graphite (settled) */
+  --bg-base:#131211;
+  --bg-surface:#1A1918;
+  --bg-raised:#222120;
+  --bg-overlay:#292826;
+  --bd-subtle:#2A2927;
+  --bd-strong:#3A3835;
+
+  --tx-primary:#EAE7E1;
+  --tx-body:#C3BEB6;
+  --tx-secondary:#9C978F;
+  --tx-muted:#7A756E;
+
+  --ac:#6FA8CE; --ac-hover:#8CBEDE; --ac-tint:rgba(111,168,206,.13);
+  --ac-solid:#3D7FA8; --ac-on:#F4FAFD;
+
+  --s-backlog:#6B6660; --s-todo:#9AA3AE; --s-progress:#C99A54;
+  --s-review:#A78BC5; --s-done:#6FA57C; --s-cancel:#55514C;
+  --p-urgent:#CB6F63;
+
+  --font-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+  --font-mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  --r-ctl:6px; --r-card:10px; --r-panel:14px;
+}
+/* Deliberately single-theme: the product is dark by specification. */
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg-base);color:var(--tx-body);
+  font-family:var(--font-ui);font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased}
+a{color:var(--ac);text-decoration:none}
+a:hover{color:var(--ac-hover)}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px;border-radius:3px}
+
+.wrap{max-width:1200px;margin:0 auto;padding:0 28px}
+.prose{max-width:700px}
+.eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--tx-muted);margin:0 0 14px}
+h1{font-size:clamp(2.1rem,5vw,3rem);line-height:1.08;letter-spacing:-.025em;
+  font-weight:600;color:var(--tx-primary);margin:0 0 18px;text-wrap:balance}
+h2{font-size:1.35rem;letter-spacing:-.015em;font-weight:600;color:var(--tx-primary);
+  margin:0 0 6px;text-wrap:balance}
+h3{font-size:.95rem;font-weight:600;color:var(--tx-primary);margin:0 0 8px}
+p{margin:0 0 16px}
+strong{color:var(--tx-primary);font-weight:600}
+code{font-family:var(--font-mono);font-size:.86em;color:var(--ac);
+  background:var(--ac-tint);padding:1px 5px;border-radius:4px}
+
+.masthead{padding:74px 0 44px;border-bottom:1px solid var(--bd-subtle)}
+.lede{font-size:1.05rem;color:var(--tx-secondary);max-width:640px;margin:0}
+.decisions{display:flex;flex-wrap:wrap;gap:8px;margin-top:32px}
+.dec{display:flex;align-items:baseline;gap:8px;background:var(--bg-surface);
+  border:1px solid var(--bd-subtle);border-radius:var(--r-ctl);padding:7px 12px}
+.dec b{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--tx-muted);font-weight:500}
+.dec span{font-size:13px;color:var(--tx-primary)}
+
+section{padding:64px 0}
+section + section{border-top:1px solid var(--bd-subtle)}
+.sec-head{display:flex;flex-direction:column;gap:14px;margin-bottom:34px}
+.sec-head .eyebrow,.sec-head h1,.sec-head h2,.sec-head p{margin:0}
+.sec-head p{color:var(--tx-secondary);max-width:640px}
+
+.switch{display:inline-flex;gap:2px;background:var(--bg-surface);padding:3px;
+  border:1px solid var(--bd-subtle);border-radius:8px;margin-bottom:22px;flex-wrap:wrap}
+.switch button{font:inherit;font-size:12.5px;color:var(--tx-secondary);background:none;
+  border:0;padding:6px 13px;border-radius:5px;cursor:pointer;transition:background .14s,color .14s}
+.switch button:hover{color:var(--tx-primary);background:var(--bg-raised)}
+.switch button[aria-selected="true"]{background:var(--ac-tint);color:var(--ac-hover)}
+.screen{display:none}
+.screen.is-on{display:block;animation:rise .22s ease both}
+@keyframes rise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+/* ── browser frame ───────────────────────────────────── */
+.frame{border:1px solid var(--bd-strong);border-radius:var(--r-panel);
+  background:var(--bg-surface);overflow:hidden}
+.chrome{display:flex;align-items:center;gap:12px;padding:9px 14px;
+  background:var(--bg-base);border-bottom:1px solid var(--bd-subtle)}
+.lights{display:flex;gap:6px}
+.lights i{width:9px;height:9px;border-radius:50%;background:var(--bd-strong);display:block}
+.url{font-family:var(--font-mono);font-size:11px;color:var(--tx-muted);
+  background:var(--bg-surface);border:1px solid var(--bd-subtle);border-radius:5px;padding:3px 10px}
+.url b{color:var(--tx-secondary);font-weight:400}
+.scroller{overflow-x:auto}
+.app{display:grid;grid-template-columns:240px 1fr;min-width:1040px;min-height:596px;position:relative}
+.app.nosidebar{grid-template-columns:1fr}
+/* Fixed-viewport variant: the rail clips and scrolls, as it does in the real app.
+   Used where the dock is expanded so the whole window still fits on screen. */
+.app.fixed{height:534px;min-height:0;overflow:hidden}
+.app.fixed .rail{overflow-y:auto}
+
+/* ── workspace switcher ──────────────────────────────── */
+.side{background:var(--bg-base);border-right:1px solid var(--bd-subtle);
+  display:flex;flex-direction:column;min-height:0}
+.ws{display:flex;align-items:center;gap:10px;padding:11px 12px;
+  border-bottom:1px solid var(--bd-subtle);cursor:pointer}
+.ws:hover{background:var(--bg-surface)}
+.ws .tile{width:26px;height:26px;border-radius:7px;font-size:13px}
+.ws-txt{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.ws-txt b{font-size:13.5px;font-weight:600;color:var(--tx-primary);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ws-txt span{font-size:11px;color:var(--tx-muted);font-variant-numeric:tabular-nums}
+.ws .chev{margin-left:auto;color:var(--tx-muted);display:flex}
+
+.wsmenu{position:absolute;top:8px;left:8px;width:266px;z-index:6;
+  background:var(--bg-overlay);border:1px solid var(--bd-strong);border-radius:var(--r-card);
+  box-shadow:0 16px 40px rgba(0,0,0,.55);padding:5px;
+  display:flex;flex-direction:column;gap:1px}
+.wsmenu .mlabel{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--tx-muted);padding:8px 9px 5px}
+.wsmenu a{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:var(--r-ctl);
+  font-size:13px;color:var(--tx-secondary)}
+.wsmenu a:hover{background:var(--bg-raised);color:var(--tx-primary)}
+.wsmenu a.on{background:var(--bg-raised);color:var(--tx-primary);font-weight:500}
+.wsmenu a em{margin-left:auto;font-style:normal;font-size:11px;color:var(--tx-muted);
+  font-variant-numeric:tabular-nums}
+.wsmenu a .tick{margin-left:auto;color:var(--ac)}
+.wsmenu hr{border:0;border-top:1px solid var(--bd-strong);margin:5px 3px}
+
+/* ── filter rail ─────────────────────────────────────── */
+.rail{padding:12px 8px;display:flex;flex-direction:column;gap:3px;overflow:hidden}
+.searchbox{display:flex;align-items:center;gap:7px;background:var(--bg-surface);
+  border:1px solid var(--bd-subtle);border-radius:var(--r-ctl);
+  padding:6px 9px;font-size:12.5px;color:var(--tx-muted);margin-bottom:8px}
+.searchbox .kbd{margin-left:auto}
+.kbd{font-family:var(--font-mono);font-size:10px;color:var(--tx-muted);
+  border:1px solid var(--bd-subtle);border-radius:4px;padding:1px 5px}
+.facet{display:flex;flex-direction:column}
+.facet-head{display:flex;align-items:center;gap:7px;padding:6px 8px;
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--tx-muted);cursor:pointer}
+.facet-head:hover{color:var(--tx-secondary)}
+.facet-head .caret{font-size:10px;width:9px;line-height:1}
+.facet-head .src{margin-left:auto;font-size:9px;letter-spacing:.06em;
+  color:var(--bd-strong);text-transform:none}
+.fitem{display:flex;align-items:center;gap:8px;padding:4px 8px 4px 22px;
+  border-radius:var(--r-ctl);font-size:12.5px;color:var(--tx-secondary);cursor:pointer}
+.fitem:hover{background:var(--bg-surface);color:var(--tx-primary)}
+.fitem.on{color:var(--tx-primary)}
+.fitem em{margin-left:auto;font-style:normal;font-size:11px;color:var(--tx-muted);
+  font-variant-numeric:tabular-nums}
+.fcheck{width:12px;height:12px;border:1px solid var(--bd-strong);border-radius:3px;
+  flex:none;display:grid;place-items:center;font-size:8px;color:transparent}
+.fcheck.on{background:var(--ac-solid);border-color:var(--ac-solid);color:var(--ac-on)}
+.rail-foot{margin-top:auto;padding:10px 8px 0;border-top:1px solid var(--bd-subtle);
+  display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tx-muted)}
+.rail-foot b{color:var(--ac);font-weight:500}
+.backlink{display:flex;align-items:center;gap:8px;padding:6px 8px;
+  border-radius:var(--r-ctl);font-size:12.5px;color:var(--tx-secondary)}
+.backlink:hover{background:var(--bg-surface);color:var(--tx-primary)}
+
+/* ── main ────────────────────────────────────────────── */
+.main{display:flex;flex-direction:column;min-width:0}
+.toolbar{display:flex;align-items:center;gap:9px;padding:12px 18px;
+  border-bottom:1px solid var(--bd-subtle);flex-wrap:wrap}
+.seg{display:inline-flex;gap:1px;background:var(--bg-raised);padding:2px;border-radius:var(--r-ctl)}
+.seg span{font-size:12px;padding:4px 11px;border-radius:4px;color:var(--tx-secondary)}
+.seg span.on{background:var(--bg-overlay);color:var(--tx-primary);box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.count{font-size:12px;color:var(--tx-muted);font-variant-numeric:tabular-nums}
+.count b{color:var(--tx-secondary);font-weight:500}
+.vsep{width:1px;height:18px;background:var(--bd-subtle)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--tx-secondary);
+  border:1px solid var(--bd-subtle);border-radius:var(--r-ctl);padding:4px 9px;background:var(--bg-surface)}
+.chip b{color:var(--tx-primary);font-weight:500}
+.live{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);
+  font-size:10.5px;color:var(--tx-muted)}
+.live i{width:6px;height:6px;border-radius:50%;background:var(--s-done);display:block;
+  box-shadow:0 0 0 3px rgba(111,165,124,.14)}
+.btn{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;
+  background:var(--ac-solid);color:var(--ac-on);border-radius:var(--r-ctl);
+  padding:5px 11px;font-weight:500}
+.btn .kbd{border-color:rgba(244,250,253,.28);color:rgba(244,250,253,.75)}
+.push{margin-left:auto}
+.viewsel{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;
+  color:var(--tx-primary);font-weight:500;padding:4px 8px;border-radius:var(--r-ctl)}
+.viewsel:hover{background:var(--bg-raised)}
+.viewsel svg{color:var(--tx-muted)}
+.viewsel .dirty{width:5px;height:5px;border-radius:50%;background:var(--ac);
+  display:block;flex:none}
+.chip.save{border-color:rgba(111,168,206,.35);background:var(--ac-tint);
+  color:var(--ac-hover);font-weight:500}
+
+/* ── stats band ──────────────────────────────────────── */
+.statsband{display:flex;align-items:center;gap:14px;padding:10px 18px;
+  border-bottom:1px solid var(--bd-subtle);background:var(--bg-base);flex-wrap:wrap}
+.stat-id{display:flex;align-items:baseline;gap:9px;font-size:12px;color:var(--tx-muted);
+  font-variant-numeric:tabular-nums}
+.stat-id .ver{font-family:var(--font-mono);font-size:11px;color:var(--tx-secondary);
+  background:var(--bg-raised);border:1px solid var(--bd-subtle);border-radius:4px;padding:1px 7px}
+.stat-id b{color:var(--tx-primary);font-weight:600;font-size:12.5px}
+.meters{margin-left:auto;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.meter-u{display:flex;flex-direction:column;gap:4px;min-width:124px}
+.meter-u .lbl{display:flex;align-items:baseline;gap:7px;font-family:var(--font-mono);
+  font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--tx-muted)}
+.meter-u .lbl em{margin-left:auto;font-style:normal;font-size:10.5px;
+  color:var(--tx-secondary);font-variant-numeric:tabular-nums;letter-spacing:0}
+.track{height:5px;border-radius:3px;background:var(--bd-subtle);position:relative}
+.track .fill{position:absolute;inset:0 auto 0 0;border-radius:3px;background:var(--ac)}
+.track .over{position:absolute;top:0;bottom:0;border-radius:0 3px 3px 0;background:var(--p-urgent)}
+.track .cap{position:absolute;top:-4px;bottom:-4px;width:2px;border-radius:1px;
+  background:var(--tx-primary);box-shadow:0 0 0 2px var(--bg-base)}
+.track .cap::after{content:"";position:absolute;top:-4px;left:-3px;
+  border-left:4px solid transparent;border-right:4px solid transparent;
+  border-top:4px solid var(--tx-primary)}
+.meter-u.blocked .fill{background:var(--s-progress)}
+.meter-u.blocked .lbl{color:var(--p-urgent)}
+.statsband .expand{color:var(--tx-muted);display:flex;padding-left:4px}
+.reset{font-size:10.5px;color:var(--tx-muted);font-variant-numeric:tabular-nums}
+.blockbar{display:flex;align-items:center;gap:10px;padding:8px 18px;font-size:12px;
+  background:rgba(203,111,99,.09);border-bottom:1px solid rgba(203,111,99,.22);
+  color:#DBA49D;line-height:1.5}
+.blockbar .ico{flex:none}
+.blockbar .msg{flex:1;min-width:0}
+.blockbar b{color:var(--tx-primary);font-weight:500}
+.blockbar code{color:#E4B0A8;background:rgba(203,111,99,.14);white-space:nowrap}
+.blockbar .chip{flex:none;border-color:rgba(203,111,99,.3);background:transparent;
+  color:#DBA49D;white-space:nowrap}
+
+/* ── docs ────────────────────────────────────────────── */
+.tree{display:flex;flex-direction:column;gap:1px;padding:2px 0}
+.tree a{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:var(--r-ctl);
+  font-size:12.5px;color:var(--tx-secondary)}
+.tree a:hover{background:var(--bg-surface);color:var(--tx-primary)}
+.tree a.on{background:var(--bg-raised);color:var(--tx-primary);font-weight:500}
+.tree a.nest{padding-left:24px}
+.tree a.nest2{padding-left:40px}
+.tree .ext{margin-left:auto;font-family:var(--font-mono);font-size:9.5px;color:var(--bd-strong)}
+.tree .fold{color:var(--tx-muted);font-size:9px;width:9px}
+
+.doc{padding:26px 30px;max-width:720px;display:flex;flex-direction:column;gap:14px}
+.doc .crumbs{font-family:var(--font-mono);font-size:10.5px;color:var(--tx-muted)}
+.doc h1{font-size:25px;margin:0;letter-spacing:-.02em}
+.doc h2{font-size:16px;margin:12px 0 0;letter-spacing:-.01em}
+.doc p{margin:0;font-size:13.5px;color:var(--tx-body);line-height:1.7}
+.doc ul{margin:0;padding-left:20px;font-size:13.5px;color:var(--tx-body);line-height:1.7}
+.doc li::marker{color:var(--bd-strong)}
+.doc pre{margin:0;background:var(--bg-base);border:1px solid var(--bd-subtle);
+  border-radius:var(--r-ctl);padding:11px 13px;font-family:var(--font-mono);
+  font-size:11.5px;line-height:1.7;color:var(--tx-secondary);overflow-x:auto}
+.doc pre .k{color:var(--ac)}
+.doc pre .s{color:#9CC7A6}
+.doc pre .c{color:var(--tx-muted)}
+.doc figure{margin:0;display:flex;flex-direction:column;gap:7px}
+.doc figcaption{font-size:11.5px;color:var(--tx-muted);font-family:var(--font-mono)}
+.docimg{border:1px solid var(--bd-subtle);border-radius:var(--r-card);
+  background:var(--bg-surface);height:150px;display:grid;place-items:center;position:relative;
+  overflow:hidden}
+.doc table{font-size:12.5px}
+.doc th{padding:7px 11px;text-align:left}
+.doc td{padding:7px 11px}
+
+/* ── activity dock ───────────────────────────────────── */
+.dock{border-top:1px solid var(--bd-strong);background:var(--bg-base);
+  display:flex;flex-direction:column;flex:none}
+.dock-head{display:flex;align-items:center;gap:10px;padding:7px 16px;font-size:12px;
+  color:var(--tx-secondary);cursor:pointer}
+.dock-head:hover{background:var(--bg-surface)}
+.dock-head .car{color:var(--tx-muted);display:flex}
+.dock-head b{color:var(--tx-primary);font-weight:600;font-size:12.5px}
+.dock-head .tally{display:flex;align-items:center;gap:9px;font-variant-numeric:tabular-nums}
+.dock-head .tally i{width:5px;height:5px;border-radius:50%;display:block}
+.dock-head .pauseall{margin-left:auto;font-size:11.5px;color:var(--tx-secondary);
+  border:1px solid var(--bd-strong);border-radius:5px;padding:3px 9px}
+.dock-rows{border-top:1px solid var(--bd-subtle);display:flex;flex-direction:column;
+  max-height:210px;overflow-y:auto}
+.arow{display:grid;grid-template-columns:18px 62px 1fr 150px 128px 62px 54px;
+  align-items:center;gap:11px;padding:7px 16px;font-size:12.5px;
+  border-bottom:1px solid var(--bd-subtle)}
+.arow:hover{background:var(--bg-surface)}
+.arow .k{font-family:var(--font-mono);font-size:11px;color:var(--tx-muted)}
+.arow .t{color:var(--tx-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.arow .el{font-family:var(--font-mono);font-size:11px;color:var(--tx-muted);
+  text-align:right;font-variant-numeric:tabular-nums}
+.arow .ctl{display:flex;gap:5px;justify-content:flex-end}
+.ibtn{width:22px;height:22px;border-radius:5px;border:1px solid var(--bd-subtle);
+  display:grid;place-items:center;color:var(--tx-secondary);font-size:10px}
+.ibtn:hover{background:var(--bg-raised);color:var(--tx-primary);border-color:var(--bd-strong)}
+.ibtn.danger:hover{color:var(--p-urgent);border-color:rgba(203,111,99,.45)}
+.prog{display:flex;align-items:center;gap:8px}
+.prog .bar{flex:1;height:4px;border-radius:2px;background:var(--bd-subtle);overflow:hidden}
+.prog .bar i{display:block;height:100%;border-radius:2px;background:var(--ac)}
+.prog .n{font-family:var(--font-mono);font-size:10.5px;color:var(--tx-muted);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.prog.indet .bar{position:relative;background:var(--bd-subtle)}
+.prog.indet .bar::after{content:"";position:absolute;top:0;bottom:0;width:38%;
+  border-radius:2px;background:linear-gradient(90deg,transparent,var(--ac),transparent);
+  animation:slide 1.6s ease-in-out infinite}
+@keyframes slide{0%{left:-38%}100%{left:100%}}
+.needs{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--s-progress)}
+.dock-group{padding:8px 16px 4px;font-family:var(--font-mono);font-size:9.5px;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--tx-muted);
+  border-bottom:1px solid var(--bd-subtle);display:flex;align-items:center;gap:8px}
+.arow.q .t{color:var(--tx-secondary)}
+.qpos{font-family:var(--font-mono);font-size:10.5px;color:var(--tx-muted)}
+
+/* ── confirm dialog ──────────────────────────────────── */
+.dlg{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);z-index:9;
+  width:426px;background:var(--bg-overlay);border:1px solid var(--bd-strong);
+  border-radius:var(--r-panel);box-shadow:0 24px 60px rgba(0,0,0,.6);overflow:hidden}
+.dlg-body{padding:18px 20px;display:flex;flex-direction:column;gap:11px}
+.dlg h4{margin:0;font-size:15.5px;font-weight:600;color:var(--tx-primary);letter-spacing:-.01em}
+.dlg p{margin:0;font-size:13px;color:var(--tx-body);line-height:1.6}
+.applied{background:var(--bg-base);border:1px solid var(--bd-subtle);
+  border-radius:var(--r-ctl);padding:9px 11px;display:flex;flex-direction:column;gap:5px}
+.applied .h{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--tx-muted)}
+.applied div.f{font-family:var(--font-mono);font-size:11px;color:var(--tx-secondary);
+  display:flex;gap:8px}
+.applied div.f em{margin-left:auto;font-style:normal;color:var(--s-done)}
+.dlg-foot{display:flex;align-items:center;gap:9px;padding:12px 20px;
+  border-top:1px solid var(--bd-subtle);background:var(--bg-surface)}
+.btn-danger{display:inline-flex;align-items:center;font-size:12.5px;font-weight:500;
+  background:#8E4038;color:#FBEFED;border-radius:var(--r-ctl);padding:6px 12px}
+.btn-quiet{font-size:12.5px;color:var(--tx-secondary);border:1px solid var(--bd-strong);
+  border-radius:var(--r-ctl);padding:6px 12px}
+
+/* ── settings ────────────────────────────────────────── */
+.sgroup{display:flex;flex-direction:column;gap:13px;padding-bottom:22px;
+  border-bottom:1px solid var(--bd-subtle)}
+.sgroup:last-child{border-bottom:0}
+.sgroup > h3{margin:0;font-size:14px}
+.sgroup > p.hint{margin:-7px 0 0;font-size:12.5px;color:var(--tx-muted)}
+.srow{display:grid;grid-template-columns:172px 1fr;gap:14px;align-items:center}
+.srow > label{font-size:12.5px;color:var(--tx-secondary)}
+.srow .sub{display:block;font-size:11.5px;color:var(--tx-muted);margin-top:2px}
+.sel{display:inline-flex;align-items:center;gap:9px;background:var(--bg-raised);
+  border:1px solid var(--bd-subtle);border-radius:var(--r-ctl);padding:6px 10px;
+  font-size:12.5px;color:var(--tx-primary);justify-self:start;min-width:190px}
+.sel svg{margin-left:auto;color:var(--tx-muted)}
+.pathfield{display:flex;align-items:center;gap:9px;background:var(--bg-raised);
+  border:1px solid var(--bd-subtle);border-radius:var(--r-ctl);padding:6px 10px;
+  font-family:var(--font-mono);font-size:11.5px;color:var(--tx-primary)}
+.pathfield .ok{margin-left:auto;font-family:var(--font-ui);font-size:11.5px;color:var(--s-done)}
+.switchrow{display:flex;align-items:flex-start;gap:11px}
+.switchrow .txt{display:flex;flex-direction:column;gap:2px}
+.switchrow .txt b{font-size:12.5px;color:var(--tx-primary);font-weight:500}
+.switchrow .txt span{font-size:11.5px;color:var(--tx-muted);line-height:1.5}
+.switchrow.warnrow{background:rgba(203,111,99,.07);border:1px solid rgba(203,111,99,.2);
+  border-radius:var(--r-ctl);padding:10px 12px}
+.switchrow.warnrow .txt span{color:#C79B95}
+
+.modes{display:flex;flex-direction:column;gap:7px}
+.mode{display:flex;align-items:flex-start;gap:11px;padding:11px 13px;
+  border:1px solid var(--bd-subtle);border-radius:var(--r-ctl);background:var(--bg-raised)}
+.mode.on{border-color:var(--ac);background:var(--ac-tint)}
+.radio{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--bd-strong);
+  flex:none;margin-top:1px;display:grid;place-items:center}
+.mode.on .radio{border-color:var(--ac)}
+.mode.on .radio::after{content:"";width:7px;height:7px;border-radius:50%;background:var(--ac)}
+.mode .txt b{font-size:12.5px;color:var(--tx-primary);font-weight:500;display:block}
+.mode .txt span{font-size:11.5px;color:var(--tx-muted);line-height:1.55}
+.asklist{display:flex;flex-wrap:wrap;gap:6px;padding:11px 13px;background:var(--bg-base);
+  border:1px solid var(--bd-subtle);border-radius:var(--r-ctl);margin-left:25px}
+.apat{font-family:var(--font-mono);font-size:10.5px;background:var(--bg-overlay);
+  border:1px solid var(--bd-subtle);border-radius:4px;padding:2px 8px;
+  color:var(--tx-primary);display:inline-flex;align-items:center;gap:7px}
+.apat s{text-decoration:none;color:var(--tx-muted)}
+.apat.add{border-style:dashed;color:var(--tx-muted)}
+.denyblock{border:1px solid rgba(203,111,99,.3);border-radius:var(--r-ctl);
+  background:rgba(203,111,99,.06);overflow:hidden}
+.denyhead{display:grid;grid-template-columns:16px 1fr;gap:4px 10px;padding:11px 13px 9px}
+.denyhead .nosign{color:var(--p-urgent);font-size:13px;grid-row:span 2;line-height:1.2}
+.denyhead b{font-size:12.5px;color:var(--tx-primary);font-weight:500}
+.denyhead > span:last-child{font-size:11.5px;color:#C79B95;line-height:1.55}
+.denylist{display:flex;flex-wrap:wrap;gap:6px;padding:0 13px 12px 39px}
+.dpat{font-family:var(--font-mono);font-size:10.5px;background:rgba(203,111,99,.13);
+  border:1px solid rgba(203,111,99,.3);border-radius:4px;padding:2px 8px;
+  color:#E4B0A8;display:inline-flex;align-items:center;gap:7px}
+.dpat s{text-decoration:none;color:rgba(228,176,168,.55)}
+.dpat.add{background:transparent;border-style:dashed;color:#B5776F}
+.snav{display:flex;flex-direction:column;gap:1px}
+.snav a{display:flex;align-items:center;gap:9px;padding:6px 9px;border-radius:var(--r-ctl);
+  font-size:12.5px;color:var(--tx-secondary)}
+.snav a:hover{background:var(--bg-surface);color:var(--tx-primary)}
+.snav a.on{background:var(--bg-raised);color:var(--tx-primary);font-weight:500}
+.snav a.danger{color:#B5776F}
+
+/* ── model / effort chips ────────────────────────────── */
+.mdl{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-mono);
+  font-size:10.5px;background:var(--bg-raised);border:1px solid var(--bd-subtle);
+  border-radius:4px;padding:2px 8px;color:var(--tx-primary)}
+.mdl .routed{font-family:var(--font-ui);font-size:10px;color:var(--tx-muted)}
+.mdl .dot-sep{color:var(--bd-strong)}
+.sched{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--tx-primary)}
+.sched .routed{font-size:10px;color:var(--tx-muted)}
+.chip.sortai b{color:var(--ac-hover)}
+.chip.sortai{border-color:rgba(111,168,206,.28)}
+.mdl.pinned{border-color:rgba(111,168,206,.4);background:var(--ac-tint);color:var(--ac-hover)}
+.effdots{display:inline-flex;gap:2px;align-items:center}
+.effdots i{width:4px;height:4px;border-radius:50%;background:var(--bd-strong);display:block}
+.effdots i.on{background:var(--ac)}
+
+/* ── AI composer ─────────────────────────────────────── */
+.compose{padding:22px 20px;display:flex;flex-direction:column;gap:16px;max-width:760px}
+.compose-head{display:flex;flex-direction:column;gap:5px}
+.compose-head h4{margin:0;font-size:17px;font-weight:600;color:var(--tx-primary);
+  letter-spacing:-.01em}
+.compose-head p{margin:0;font-size:12.5px;color:var(--tx-muted)}
+.composebox{background:var(--bg-raised);border:1px solid var(--ac);
+  border-radius:var(--r-card);padding:13px 14px;font-size:13.5px;
+  color:var(--tx-primary);line-height:1.6;min-height:96px}
+.composebox .cue{color:var(--tx-muted)}
+.compose-bar{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--tx-muted)}
+.thinking{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--ac-hover)}
+.thinking i{width:5px;height:5px;border-radius:50%;background:var(--ac);display:block;
+  animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
+
+.draft{background:var(--bg-surface);border:1px solid var(--bd-strong);
+  border-radius:var(--r-card);overflow:hidden}
+.draft-head{display:flex;align-items:center;gap:9px;padding:9px 13px;
+  border-bottom:1px solid var(--bd-subtle);font-family:var(--font-mono);
+  font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--tx-muted)}
+.draft-head .ai{color:var(--ac);letter-spacing:.11em}
+.draft-body{padding:13px;display:flex;flex-direction:column;gap:13px}
+.draft-title{font-size:15px;font-weight:600;color:var(--tx-primary);
+  border-bottom:1px dashed var(--bd-strong);padding-bottom:5px}
+.draft-desc{font-size:12.5px;color:var(--tx-body);line-height:1.6;margin:0}
+.inferred{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:9px}
+.inf{background:var(--bg-raised);border:1px solid var(--bd-subtle);
+  border-radius:var(--r-ctl);padding:7px 10px;display:flex;flex-direction:column;gap:4px}
+.inf b{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--tx-muted);font-weight:500}
+.inf span{font-size:12.5px;color:var(--tx-primary);display:flex;align-items:center;gap:6px}
+.inf.empty{border-style:dashed}
+.inf.empty span{color:var(--tx-muted)}
+.warn{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--s-progress);
+  background:rgba(201,154,84,.09);border:1px solid rgba(201,154,84,.22);
+  border-radius:var(--r-ctl);padding:7px 10px}
+.draft-foot{display:flex;align-items:center;gap:9px;padding:11px 13px;
+  border-top:1px solid var(--bd-subtle);background:var(--bg-base)}
+
+/* ── run panel ───────────────────────────────────────── */
+.run{padding:0;display:flex;flex-direction:column;min-height:0}
+.run-head{display:flex;align-items:center;gap:10px;padding:12px 18px;
+  border-bottom:1px solid var(--bd-subtle)}
+.run-head .k{font-family:var(--font-mono);font-size:11px;color:var(--tx-muted)}
+.run-head h4{margin:0;font-size:14px;font-weight:600;color:var(--tx-primary)}
+.runstate{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-mono);
+  font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;
+  border-radius:20px}
+.runstate.awaiting{background:rgba(201,154,84,.14);color:var(--s-progress)}
+.runstate i{width:5px;height:5px;border-radius:50%;background:currentColor;display:block;
+  animation:pulse 1.2s ease-in-out infinite}
+.wspath{font-family:var(--font-mono);font-size:10.5px;color:var(--tx-muted);
+  background:var(--bg-raised);border:1px solid var(--bd-subtle);
+  border-radius:4px;padding:2px 8px}
+.run-body{padding:14px 18px;display:flex;flex-direction:column;gap:8px;overflow:hidden}
+.op{border:1px solid var(--bd-subtle);border-radius:var(--r-ctl);
+  background:var(--bg-surface);overflow:hidden}
+.op-row{display:flex;align-items:center;gap:10px;padding:8px 11px;font-size:12.5px}
+.op-kind{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.09em;
+  text-transform:uppercase;padding:2px 7px;border-radius:4px;flex:none;min-width:56px;
+  text-align:center}
+.op-kind.safe{background:var(--bg-overlay);color:var(--tx-muted)}
+.op-kind.write{background:rgba(111,168,206,.16);color:var(--ac-hover)}
+.op-kind.exec{background:rgba(203,111,99,.15);color:var(--p-urgent)}
+.op-sum{color:var(--tx-primary);font-family:var(--font-mono);font-size:11.5px}
+.op-note{color:var(--tx-muted);font-size:11.5px}
+.op-state{margin-left:auto;display:flex;align-items:center;gap:8px;
+  font-size:11.5px;color:var(--tx-muted);white-space:nowrap}
+.op-state .ok{color:var(--s-done)}
+.op.pending{border-color:rgba(201,154,84,.35);background:rgba(201,154,84,.05)}
+.op.denied{border-color:rgba(203,111,99,.3);background:rgba(203,111,99,.05)}
+.op.denied .op-sum{color:#C79B95;text-decoration:line-through;
+  text-decoration-color:rgba(203,111,99,.5)}
+.op-state .no{color:var(--p-urgent);display:inline-flex;align-items:center;gap:5px}
+.adapted{border-top:1px solid rgba(203,111,99,.18);padding:7px 11px;font-size:11.5px;
+  color:var(--tx-muted);display:flex;align-items:center;gap:8px}
+.adapted b{color:var(--tx-secondary);font-weight:500}
+.approve{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;
+  background:var(--ac-solid);color:var(--ac-on);border-radius:5px;padding:3px 9px;font-weight:500}
+.deny{font-size:11.5px;color:var(--tx-secondary);border:1px solid var(--bd-strong);
+  border-radius:5px;padding:3px 9px}
+.diff{border-top:1px solid var(--bd-subtle);font-family:var(--font-mono);
+  font-size:11px;line-height:1.65;background:var(--bg-base)}
+.diff div{padding:0 11px;white-space:pre}
+.diff .add{background:rgba(111,165,124,.10);color:#9CC7A6}
+.diff .del{background:rgba(203,111,99,.10);color:#D39A92}
+.diff .ctx{color:var(--tx-muted)}
+.diff .hunk{color:var(--tx-muted);background:var(--bg-raised);
+  border-block:1px solid var(--bd-subtle)}
+.term{border-top:1px solid var(--bd-subtle);font-family:var(--font-mono);
+  font-size:11px;line-height:1.7;background:#0E0D0C;padding:8px 11px;color:var(--tx-secondary)}
+.term .exit{color:var(--s-done)}
+.run-foot{margin-top:auto;display:flex;align-items:center;gap:12px;padding:11px 18px;
+  border-top:1px solid var(--bd-subtle);font-size:11.5px;color:var(--tx-muted);
+  font-variant-numeric:tabular-nums}
+.run-foot .push{margin-left:auto}
+
+/* ── table ───────────────────────────────────────────── */
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{text-align:left;font-family:var(--font-mono);font-size:10px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--tx-muted);font-weight:500;
+  padding:9px 12px;border-bottom:1px solid var(--bd-subtle);white-space:nowrap}
+thead th.num,tbody td.num{text-align:right}
+.grouprow td{padding:14px 12px 7px;border-bottom:1px solid var(--bd-subtle)}
+.gh{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tx-primary);font-weight:600}
+.gh em{font-style:normal;color:var(--tx-muted);font-weight:400;font-variant-numeric:tabular-nums}
+.gh .caret{color:var(--tx-muted);font-size:9px;width:9px}
+tbody td{padding:8px 12px;border-bottom:1px solid var(--bd-subtle);
+  color:var(--tx-secondary);vertical-align:middle}
+tbody tr.task:hover td{background:var(--bg-raised)}
+tbody tr.sel td{background:var(--ac-tint)}
+td.key{font-family:var(--font-mono);font-size:11px;color:var(--tx-muted);white-space:nowrap}
+td.title{color:var(--tx-primary);width:100%;font-weight:450}
+td.num{font-variant-numeric:tabular-nums;color:var(--tx-secondary)}
+td.when{color:var(--tx-muted);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.box{width:13px;height:13px;border:1px solid var(--bd-strong);border-radius:3.5px;display:block}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+.ring{width:9px;height:9px;border-radius:50%;border:1.5px solid currentColor;flex:none;display:inline-block}
+.half{width:9px;height:9px;border-radius:50%;border:1.5px solid currentColor;
+  background:linear-gradient(90deg,currentColor 50%,transparent 50%);flex:none;display:inline-block}
+.bars{display:inline-flex;align-items:flex-end;gap:1.5px;height:10px}
+.bars i{width:3px;background:var(--bd-strong);border-radius:1px;display:block}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:7px}.bars i:nth-child(3){height:10px}
+.prio{display:inline-flex;align-items:center;gap:7px;font-size:12px;white-space:nowrap}
+.pill{font-family:var(--font-mono);font-size:10.5px;padding:2px 7px;border-radius:4px;
+  background:var(--bg-raised);color:var(--tx-secondary);white-space:nowrap}
+.pill.sz{min-width:26px;text-align:center;letter-spacing:.03em;display:inline-block}
+.pill.sz.epicsz{background:var(--ac-tint);color:var(--ac-hover);
+  border:1px solid rgba(111,168,206,.28);padding:1px 6px}
+thead th.c,tbody td.icn{text-align:center}
+td.icn{white-space:nowrap}
+/* Hollow vs solid, not dim vs bright — at 5px a fill difference alone is
+   unreadable, so unfilled steps are rings and filled ones are discs. */
+.diffdots{display:inline-flex;gap:3px;align-items:center;cursor:default}
+.diffdots i{width:5px;height:5px;border-radius:50%;display:block;
+  border:1px solid var(--bd-strong);box-sizing:border-box}
+.diffdots i.on{background:var(--tx-secondary);border-color:var(--tx-secondary)}
+.tyicon{display:inline-flex;color:var(--tx-secondary);cursor:default;vertical-align:-2px}
+tr.task:hover .tyicon{color:var(--tx-primary)}
+.bars{cursor:default}
+
+/* ── epics ───────────────────────────────────────────── */
+.box.on{background:var(--ac-solid);border-color:var(--ac-solid);color:var(--ac-on);
+  display:grid;place-items:center;font-size:8px}
+tr.task.checked td{background:var(--ac-tint)}
+tr.task.epic td{background:rgba(111,168,206,.05)}
+tr.task.epic td.title{font-weight:500}
+.disc{display:inline-block;width:11px;color:var(--tx-muted);font-size:9px}
+.epicmark{font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ac-hover);background:var(--ac-tint);border:1px solid rgba(111,168,206,.28);
+  border-radius:3px;padding:1px 5px;margin-right:8px;vertical-align:1px}
+.epicmark.big{font-size:10px;padding:2px 7px;margin-right:0}
+.kidcount{margin-left:9px;font-size:11px;color:var(--tx-muted);
+  font-variant-numeric:tabular-nums}
+tr.task.child td.key{padding-left:0}
+.guide{display:inline-block;width:15px;margin-left:9px;border-left:1px solid var(--bd-strong);
+  border-bottom:1px solid var(--bd-strong);height:8px;margin-right:7px;vertical-align:3px;
+  border-radius:0 0 0 3px}
+tr.task.child td.title{color:var(--tx-secondary)}
+
+.epicpage{padding:20px 18px;display:flex;flex-direction:column;gap:14px}
+.epichead{display:flex;align-items:center;gap:11px}
+.epichead .k{font-family:var(--font-mono);font-size:11px;color:var(--tx-muted)}
+.epichead h4{margin:0;font-size:18px;font-weight:600;color:var(--tx-primary);letter-spacing:-.015em}
+.epicdesc{margin:0;font-size:13px;color:var(--tx-body);line-height:1.65;max-width:660px}
+.epicmeta{display:flex;gap:26px;flex-wrap:wrap;padding:12px 14px;background:var(--bg-surface);
+  border:1px solid var(--bd-subtle);border-radius:var(--r-card)}
+.em{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--tx-primary)}
+.em b{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--tx-muted);font-weight:500}
+.em .prog{min-width:118px}
+.kidtable{border:1px solid var(--bd-subtle);border-radius:var(--r-card);overflow:hidden}
+.kidtable td{border-bottom:1px solid var(--bd-subtle)}
+.kidtable tr:last-child td{border-bottom:0}
+.kidtable .ibtn{margin-left:auto}
+
+/* ── bulk action bar ─────────────────────────────────── */
+.bulkwrap{position:sticky;bottom:0;display:flex;justify-content:center;
+  padding:14px 0 18px;pointer-events:none}
+.bulk{display:inline-flex;align-items:center;gap:11px;background:var(--bg-overlay);
+  border:1px solid var(--bd-strong);border-radius:10px;padding:7px 9px 7px 14px;
+  box-shadow:0 14px 34px rgba(0,0,0,.5);font-size:12.5px;pointer-events:auto}
+.bulk .cnt{color:var(--tx-secondary)}
+.bulk .cnt b{color:var(--tx-primary);font-weight:600}
+.bulk .sep{width:1px;height:18px;background:var(--bd-strong)}
+.bact{padding:5px 10px;border-radius:6px;color:var(--tx-secondary);white-space:nowrap}
+.bact:hover{background:var(--bg-raised);color:var(--tx-primary)}
+.bact.primary{background:var(--ac-solid);color:var(--ac-on);font-weight:500}
+.bact.quiet{color:var(--tx-muted);display:inline-flex;align-items:center;gap:7px}
+
+/* orchestrated runs nest in the dock */
+.arow.sub .t{color:var(--tx-secondary)}
+.arow.sub .k{padding-left:0}
+.arow.epicrun{background:rgba(111,168,206,.05)}
+.arow.held{background:rgba(203,111,99,.05)}
+.arow.held .t{color:var(--tx-secondary)}
+.held{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:#C79B95;
+  white-space:nowrap}
+.tile{width:17px;height:17px;border-radius:4px;display:grid;place-items:center;font-size:10px;flex:none}
+
+/* ── board ───────────────────────────────────────────── */
+.board{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:16px 18px;align-items:start}
+.col-head{display:flex;align-items:center;gap:8px;padding:0 3px 10px;font-size:12px;
+  font-weight:600;color:var(--tx-primary)}
+.col-head em{font-style:normal;color:var(--tx-muted);font-weight:400;font-variant-numeric:tabular-nums}
+.col-head .add{margin-left:auto;color:var(--tx-muted);font-size:14px}
+.stack{display:flex;flex-direction:column;gap:8px}
+.card{background:var(--bg-raised);border:1px solid var(--bd-subtle);border-radius:var(--r-card);
+  padding:10px;display:flex;flex-direction:column;gap:8px}
+.card:hover{border-color:var(--bd-strong)}
+.card .k{font-family:var(--font-mono);font-size:10px;color:var(--tx-muted)}
+.card .t{font-size:12.5px;color:var(--tx-primary);line-height:1.4}
+.card .foot{display:flex;align-items:center;gap:7px}
+.card.drag{border-color:var(--ac);box-shadow:0 8px 20px rgba(0,0,0,.45);transform:rotate(-1.2deg)}
+.dropzone{border:1px dashed rgba(111,168,206,.45);background:var(--ac-tint);
+  border-radius:var(--r-card);height:62px}
+
+/* ── task view (full, tabbed) ────────────────────────── */
+.tv{display:flex;flex-direction:column;min-height:0}
+.tv-head{padding:16px 20px 0;display:flex;flex-direction:column;gap:11px}
+.tv-crumb{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--tx-muted)}
+.tv-crumb .k{font-family:var(--font-mono);font-size:11px}
+.tv-title{display:flex;align-items:flex-start;gap:12px}
+.tv-title h4{margin:0;font-size:19px;font-weight:600;color:var(--tx-primary);
+  letter-spacing:-.015em;line-height:1.3}
+.tv-title .btn{margin-left:auto;flex:none}
+.statuspill{display:inline-flex;align-items:center;gap:7px;font-size:12px;
+  padding:3px 10px;border-radius:20px;background:var(--bg-raised);
+  color:var(--tx-primary);white-space:nowrap;flex:none}
+.statuspill.q{background:rgba(167,139,197,.14);color:#C0AAD8}
+.statuspill.des{background:rgba(95,163,155,.14);color:#7FBDB5}
+.statuspill.test{background:rgba(201,154,84,.14);color:var(--s-progress)}
+.statuspill.rev{background:rgba(111,168,206,.14);color:var(--ac-hover)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd-subtle);padding:0 20px;
+  margin-top:3px}
+.tabs a{padding:8px 12px 9px;font-size:12.5px;color:var(--tx-secondary);
+  border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;
+  align-items:center;gap:7px}
+.tabs a:hover{color:var(--tx-primary)}
+.tabs a.on{color:var(--tx-primary);border-bottom-color:var(--ac);font-weight:500}
+.tabs a em{font-style:normal;font-size:10px;font-variant-numeric:tabular-nums;
+  background:var(--bg-raised);border-radius:9px;padding:1px 6px;color:var(--tx-muted)}
+.tabs a.alert em{background:rgba(203,111,99,.18);color:#DBA49D}
+.tv-body{display:grid;grid-template-columns:1fr 244px;gap:0;min-height:0}
+.tv-main{padding:16px 20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.tv-side{border-left:1px solid var(--bd-subtle);padding:14px 16px;
+  display:flex;flex-direction:column;gap:13px}
+.sfield{display:flex;flex-direction:column;gap:5px}
+.sfield b{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--tx-muted);font-weight:500}
+.sfield > span{font-size:12.5px;color:var(--tx-primary);display:flex;
+  align-items:center;gap:7px;flex-wrap:wrap}
+.tv-desc{font-size:13px;color:var(--tx-body);line-height:1.65;margin:0}
+
+/* stale / re-evaluate prompt */
+.stale{display:flex;align-items:flex-start;gap:10px;padding:11px 13px;
+  border:1px solid rgba(201,154,84,.28);background:rgba(201,154,84,.07);
+  border-radius:var(--r-ctl)}
+.stale .txt{flex:1;min-width:0;font-size:12.5px;color:#D6B98A;line-height:1.55}
+.stale .txt b{color:var(--tx-primary);font-weight:500;display:block;margin-bottom:2px}
+.stale .btn{flex:none;padding:5px 11px}
+
+/* dependencies */
+.deps{display:flex;flex-direction:column;gap:5px}
+.dep{display:flex;align-items:center;gap:8px;font-size:12px;padding:5px 9px;
+  background:var(--bg-raised);border:1px solid var(--bd-subtle);border-radius:var(--r-ctl)}
+.dep .k{font-family:var(--font-mono);font-size:10.5px;color:var(--tx-muted)}
+.dep .t{color:var(--tx-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dep .st{margin-left:auto;font-size:11px;white-space:nowrap}
+.dep.blocked{border-color:rgba(203,111,99,.28);background:rgba(203,111,99,.06)}
+.dep.blocked .st{color:#DBA49D}
+.dep.metdep .st{color:var(--s-done)}
+
+/* questions */
+.qitem{border:1px solid var(--bd-subtle);border-radius:var(--r-card);
+  background:var(--bg-surface);overflow:hidden}
+.qitem .qq{padding:12px 14px;font-size:13px;color:var(--tx-primary);line-height:1.55;
+  display:flex;gap:10px}
+.qitem .qn{font-family:var(--font-mono);font-size:10.5px;color:var(--ac);flex:none;
+  padding-top:2px}
+.qitem .qa{border-top:1px solid var(--bd-subtle);padding:10px 14px 10px 38px;
+  background:var(--bg-base)}
+.qchoices{display:flex;gap:6px;flex-wrap:wrap}
+.qchoice{font-size:12px;padding:5px 11px;border-radius:var(--r-ctl);
+  border:1px solid var(--bd-strong);color:var(--tx-secondary)}
+.qchoice:hover{border-color:var(--ac);color:var(--tx-primary)}
+.qchoice.picked{background:var(--ac-tint);border-color:var(--ac);color:var(--ac-hover)}
+.qinput{font-size:12.5px;color:var(--tx-muted);border:1px solid var(--bd-subtle);
+  border-radius:var(--r-ctl);padding:7px 10px;background:var(--bg-raised)}
+.qanswered{display:flex;gap:10px;font-size:12.5px;color:var(--tx-body);
+  padding-left:0;line-height:1.55}
+.qanswered .ok{color:var(--s-done);flex:none}
+
+/* design options */
+.dgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+.dopt{border:1px solid var(--bd-subtle);border-radius:var(--r-card);overflow:hidden;
+  background:var(--bg-surface);display:flex;flex-direction:column}
+.dopt.chosen{border-color:var(--ac);box-shadow:0 0 0 1px var(--ac)}
+.dopt .shot{height:104px;background:var(--bg-base);border-bottom:1px solid var(--bd-subtle);
+  display:grid;place-items:center;overflow:hidden}
+.dopt .meta{padding:9px 11px;display:flex;flex-direction:column;gap:4px;flex:1}
+.dopt .meta b{font-size:12.5px;color:var(--tx-primary);font-weight:500}
+.dopt .meta span{font-size:11.5px;color:var(--tx-muted);line-height:1.5}
+.dopt .pick{border-top:1px solid var(--bd-subtle);padding:7px;text-align:center;
+  font-size:12px;color:var(--tx-secondary)}
+.dopt.chosen .pick{background:var(--ac-tint);color:var(--ac-hover);font-weight:500}
+
+/* tests */
+.testtable{width:100%;border-collapse:collapse;font-size:12.5px;
+  border:1px solid var(--bd-subtle);border-radius:var(--r-card);overflow:hidden}
+.testtable th{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--tx-muted);font-weight:500;text-align:left;
+  padding:8px 12px;border-bottom:1px solid var(--bd-subtle)}
+.testtable td{padding:7px 12px;border-bottom:1px solid var(--bd-subtle);
+  color:var(--tx-secondary)}
+.testtable tr:last-child td{border-bottom:0}
+.testtable td.nm{color:var(--tx-primary);font-family:var(--font-mono);font-size:11.5px}
+.testtable td.ms{text-align:right;font-variant-numeric:tabular-nums;color:var(--tx-muted)}
+.tstat{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;white-space:nowrap}
+.tstat.pass{color:var(--s-done)}
+.tstat.fail{color:var(--p-urgent)}
+.tstat.skip{color:var(--tx-muted)}
+tr.failrow td{background:rgba(203,111,99,.06)}
+.failout{font-family:var(--font-mono);font-size:11px;line-height:1.65;color:#C79B95;
+  background:#140F0E;padding:9px 12px;white-space:pre}
+.testsum{display:flex;align-items:center;gap:14px;font-size:12.5px;color:var(--tx-secondary)}
+.testsum b{color:var(--tx-primary);font-weight:600}
+
+/* reviews */
+.verdict{display:flex;align-items:flex-start;gap:11px;padding:12px 14px;border-radius:var(--r-card);
+  border:1px solid var(--bd-subtle);background:var(--bg-surface)}
+.verdict.rejected{border-color:rgba(203,111,99,.3);background:rgba(203,111,99,.06)}
+.verdict.approved{border-color:rgba(111,165,124,.3);background:rgba(111,165,124,.06)}
+.verdict .vico{font-size:14px;flex:none;line-height:1.3}
+.verdict.rejected .vico{color:var(--p-urgent)}
+.verdict.approved .vico{color:var(--s-done)}
+.verdict .vtxt{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.verdict .vtxt b{font-size:13px;color:var(--tx-primary);font-weight:600}
+.verdict .vtxt p{margin:0;font-size:12.5px;color:var(--tx-body);line-height:1.6}
+.checklist{display:flex;flex-direction:column;gap:7px}
+.chk{display:flex;gap:10px;font-size:12.5px;color:var(--tx-body);line-height:1.55}
+.chk i{width:14px;height:14px;border:1px solid var(--bd-strong);border-radius:3px;
+  flex:none;margin-top:1px}
+.entrypoint{display:flex;align-items:center;gap:10px;padding:10px 12px;
+  background:var(--bg-raised);border:1px solid var(--bd-subtle);border-radius:var(--r-ctl)}
+.entrypoint code{flex:1;background:none;color:var(--tx-secondary);padding:0}
+.vactions{display:flex;gap:9px}
+.btn-ok{display:inline-flex;align-items:center;font-size:12.5px;font-weight:500;
+  background:#3D7A4E;color:#EFF8F1;border-radius:var(--r-ctl);padding:6px 13px}
+
+/* ── detail panel ────────────────────────────────────── */
+.scrim{position:absolute;inset:0;background:rgba(10,9,8,.55);z-index:4}
+.panel{position:absolute;top:0;right:0;bottom:0;width:430px;z-index:5;
+  background:var(--bg-surface);border-left:1px solid var(--bd-strong);
+  box-shadow:-20px 0 44px rgba(0,0,0,.42);display:flex;flex-direction:column}
+.p-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--bd-subtle)}
+.p-head .k{font-family:var(--font-mono);font-size:11px;color:var(--tx-muted)}
+.p-head .x{margin-left:auto;color:var(--tx-muted);font-size:13px}
+.p-body{padding:16px;overflow:hidden;display:flex;flex-direction:column;gap:18px}
+.p-title{font-size:17px;font-weight:600;color:var(--tx-primary);line-height:1.35;
+  letter-spacing:-.01em;margin:0}
+.p-desc{font-size:13px;color:var(--tx-body);line-height:1.6;margin:0}
+.props{display:grid;grid-template-columns:104px 1fr;gap:2px 10px;align-items:center}
+.props dt{font-size:12px;color:var(--tx-muted);padding:5px 0}
+.props dd{margin:0;font-size:12.5px;color:var(--tx-primary);padding:5px 8px;border-radius:5px}
+.props dd:hover{background:var(--bg-raised)}
+.p-sec{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--tx-muted);display:flex;align-items:center;gap:9px}
+.p-sec::after{content:"";flex:1;height:1px;background:var(--bd-subtle)}
+.editing{background:var(--bg-raised);border:1px solid var(--ac);border-radius:5px;
+  padding:4px 8px;color:var(--tx-primary)}
+.caret-blink{display:inline-block;width:1px;height:13px;background:var(--ac);
+  vertical-align:-2px;animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* ── settings ────────────────────────────────────────── */
+.settings{padding:18px;display:flex;flex-direction:column;gap:26px}
+.fieldrow{display:grid;grid-template-columns:16px 132px 108px 1fr 74px 16px;gap:12px;
+  align-items:center;padding:9px 10px;border:1px solid var(--bd-subtle);
+  border-radius:var(--r-ctl);background:var(--bg-raised);font-size:12.5px}
+.fieldrow.core{background:transparent;border-style:dashed;opacity:.72}
+.fieldrow .handle{color:var(--tx-muted);font-size:11px}
+.fkey{font-family:var(--font-mono);font-size:11px;color:var(--ac)}
+.ftype{font-family:var(--font-mono);font-size:10px;color:var(--tx-secondary);
+  background:var(--bg-overlay);border-radius:4px;padding:2px 7px;justify-self:start}
+.fopts{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.toggle{width:28px;height:16px;border-radius:8px;background:var(--bd-strong);
+  position:relative;justify-self:start}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;
+  border-radius:50%;background:var(--tx-secondary)}
+.toggle.on{background:var(--ac-solid)}
+.toggle.on::after{left:14px;background:var(--ac-on)}
+.addrow{border:1px dashed var(--bd-strong);border-radius:var(--r-ctl);padding:10px;
+  font-size:12.5px;color:var(--tx-muted);text-align:center}
+
+/* ── project grid (root) ─────────────────────────────── */
+.home{padding:26px 30px;display:flex;flex-direction:column;gap:22px}
+.home-head{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.home-head h4{margin:0;font-size:21px;font-weight:600;color:var(--tx-primary);letter-spacing:-.015em}
+.home-head p{margin:0;font-size:12.5px;color:var(--tx-muted)}
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.pcard{background:var(--bg-raised);border:1px solid var(--bd-subtle);border-radius:var(--r-card);
+  padding:14px;display:flex;flex-direction:column;gap:11px}
+.pcard:hover{border-color:var(--bd-strong);background:var(--bg-overlay)}
+.pcard .top{display:flex;align-items:center;gap:9px}
+.pcard .tile{width:26px;height:26px;border-radius:7px;font-size:13px}
+.pcard h5{margin:0;font-size:13.5px;font-weight:600;color:var(--tx-primary)}
+.pcard .sub{font-size:12px;color:var(--tx-muted);line-height:1.5;margin:0}
+.meter{height:3px;border-radius:2px;background:var(--bd-subtle);overflow:hidden}
+.meter i{display:block;height:100%;border-radius:2px}
+.pcard .stats{display:flex;align-items:center;gap:9px;font-size:11.5px;color:var(--tx-muted);
+  font-variant-numeric:tabular-nums}
+.pcard .stats b{color:var(--tx-secondary);font-weight:500}
+.pcard .stats .ago{margin-left:auto}
+.arch{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--tx-muted);
+  border-top:1px solid var(--bd-subtle);padding-top:16px}
+
+/* ── annotations & reference ─────────────────────────── */
+.notes{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:26px}
+.note{border-top:1px solid var(--bd-strong);padding-top:12px}
+.note b{display:block;font-family:var(--font-mono);font-size:10px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--ac);margin-bottom:6px;font-weight:500}
+.note p{margin:0;font-size:13px;color:var(--tx-secondary);line-height:1.55}
+
+.ramp{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;margin-bottom:34px}
+.sw{border:1px solid var(--bd-subtle);border-radius:var(--r-ctl);overflow:hidden;background:var(--bg-surface)}
+.sw .chipcolor{height:52px;display:block}
+.sw .meta{padding:8px 10px}
+.sw .nm{font-size:12px;color:var(--tx-primary);display:block}
+.sw .hx{font-family:var(--font-mono);font-size:10.5px;color:var(--tx-muted);text-transform:uppercase}
+.semrow{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.sem{display:flex;align-items:center;gap:8px;background:var(--bg-surface);
+  border:1px solid var(--bd-subtle);border-radius:var(--r-ctl);padding:6px 11px;font-size:12.5px}
+.sem code{background:none;padding:0;color:var(--tx-muted);font-size:10.5px}
+.scale{border:1px solid var(--bd-subtle);border-radius:var(--r-card);overflow:hidden}
+.scale div{display:flex;align-items:baseline;gap:18px;padding:11px 16px;border-bottom:1px solid var(--bd-subtle)}
+.scale div:last-child{border-bottom:0}
+.scale .spec{font-family:var(--font-mono);font-size:10.5px;color:var(--tx-muted);width:168px;flex:none}
+.scale .demo{color:var(--tx-primary)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:44px}
+ul.tight{margin:0;padding-left:18px;color:var(--tx-secondary);font-size:14px}
+ul.tight li{margin-bottom:9px}
+ul.tight li::marker{color:var(--bd-strong)}
+.ask{background:var(--bg-surface);border:1px solid var(--bd-subtle);border-left:2px solid var(--ac);
+  border-radius:var(--r-ctl);padding:14px 16px;margin-bottom:10px}
+.ask b{display:block;color:var(--tx-primary);font-size:14px;margin-bottom:3px}
+.ask p{margin:0;font-size:13.5px;color:var(--tx-secondary)}
+footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
+  font-family:var(--font-mono);font-size:11px;color:var(--tx-muted);letter-spacing:.04em}
+
+@media (max-width:900px){
+  .notes,.pgrid{grid-template-columns:1fr}
+  .two{grid-template-columns:1fr;gap:34px}
+  .wrap{padding:0 18px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <p class="eyebrow">Design language &amp; screen mockups · rev G</p>
+    <h1>Task&nbsp;Manager</h1>
+    <p class="lede">An AI-first, local-first task service. One process on <code>localhost</code>: a REST API for your other services, an HTML UI for you, and Claude both writing tasks and <em>doing</em> them.</p>
+    <div class="decisions">
+      <div class="dec"><b>Storage</b><span>SQLite + JSON columns</span></div>
+      <div class="dec"><b>Shell</b><span>Workspace + filter rail</span></div>
+      <div class="dec"><b>Filters</b><span>Ephemeral · Save view</span></div>
+      <div class="dec"><b>Compose</b><span>Messages API · structured</span></div>
+      <div class="dec"><b>Run</b><span>Claude Agent SDK</span></div>
+      <div class="dec"><b>Routing</b><span>Schema field → model</span></div>
+      <div class="dec"><b>Safety</b><span>Deny floor · ask default</span></div>
+      <div class="dec"><b>Epics</b><span>size = Epic</span></div>
+      <div class="dec"><b>Concurrency</b><span>One run at a time</span></div>
+      <div class="dec"><b>Ground</b><span>Warm graphite</span></div>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-head prose">
+      <p class="eyebrow">Direction</p>
+      <h2>Drafting table</h2>
+      <p>This is an instrument, not a product — it lives in a folder on your machine and nobody else logs into it. So the palette borrows from drafting rather than from SaaS: a <strong>warm graphite ground</strong> the colour of pencil lead, and a <strong>desaturated blueprint blue</strong> as the only interaction accent.</p>
+      <p>The warmth is doing real work. Every project carries its own colour, which means the system accent has to stay quiet enough that a clay-red project and a sage-green project can sit side by side without the chrome shouting over either. Warm ground, cool accent, low-chroma semantics: the temperature contrast carries the hierarchy so saturation doesn't have to.</p>
+      <p>Type is the native macOS stack rather than Inter, with monospace reserved for things that genuinely <em>are</em> identifiers: task keys, field keys, status keys. If it's mono, you can put it in a URL.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head prose">
+      <p class="eyebrow">Shell</p>
+      <h2>One workspace at a time</h2>
+      <p>A project is a <strong>workspace</strong>, not a sidebar item. Selecting one scopes the entire UI — every view, every filter, every keyboard shortcut. You change it from the switcher in the top-left corner, the way you'd change workspace in Notion.</p>
+      <p>That frees the left rail for its real job: <strong>faceted filtering</strong>. Status, priority, type, difficulty, layer, labels — each a collapsible facet with live counts. And because <code>type</code> and <code>difficulty</code> are this project's custom fields while <code>status</code> and <code>priority</code> are core, the rail can't be hardcoded. It's generated from the same <code>fieldSchema</code> that drives the table columns: <strong>every <code>select</code> field becomes a facet automatically.</strong> Open a different workspace and the rail is different.</p>
+      <p>The split that follows is worth stating as a rule, because it settles a lot of small arguments later: <strong>the rail controls which tasks are in the set; the toolbar controls how that set is presented.</strong> Filtering lives left, view/sort/group live top. Nothing appears in both places.</p>
+      <p><strong>Filters are ephemeral.</strong> They live in the URL, so a filtered view is shareable and the back button works, but they do not survive a workspace switch. A filter you forgot you set is indistinguishable from missing data. To keep one, press <strong>Save view</strong> — next to Sort and Group — which promotes the whole state (view, filters, sort, group, columns) to a stored record. When live state diverges from the selected view, the view name grows a dot and Save view turns accent.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head prose">
+      <p class="eyebrow">AI</p>
+      <h2>Write it badly, then run it</h2>
+      <p>Claude is not an assistant panel bolted to the side. It is how tasks get written and how they get done — two integrations with genuinely different shapes.</p>
+      <p><strong>Compose</strong> replaces the new-task form with a textbox. You describe the work however it comes out of your head; Claude maps it onto the workspace's schema and returns a <em>draft</em>. The mechanism is the nice part: the extraction schema is generated from the project's <code>fieldSchema</code> — the same source that validates API writes — so a workspace with <code>difficulty</code> gets difficulty extracted and one without it never sees the field. No per-project prompt engineering. Nothing is created until you press the button, and every inferred value is editable in place, because guessing wrong silently is worse than not guessing.</p>
+      <p><strong>Run</strong> is the feature that changes what the product is. Everything else here is a task tracker; this makes it an execution surface. It's built on the <strong>Claude Agent SDK</strong> — Claude Code as a library — rather than a hand-rolled loop, because that package already ships the agent loop, the file and bash tools, and a permission callback that fires before every tool execution. Rebuilding those means rebuilding file editing, diffing, command execution and the approval gate, and getting all four right.</p>
+      <p>Which is where the design work actually is. A model that can write files and run commands needs a boundary, and "it's all local anyway" stops being a sufficient answer the moment it can run <code>rm</code>. So: every project carries an absolute workspace path, and one without it has <strong>no Run button at all</strong>. Operations are classified by what they can do — reads auto-run, writes and commands meet the project's policy — and the risk class is the visual axis on the run screen. The workspace path sits in the run header where you can't miss it.</p>
+      <p><strong>Which model runs it is routed, not chosen.</strong> Every task carries a model and an effort, and both are normally inherited: you nominate one <code>select</code> field as the routing field and map its options — <code>trivial</code> → Haiku at low effort, <code>hard</code> → Opus at <code>xhigh</code>. Since <code>difficulty</code> is a custom field, routing couldn't be hardcoded to it without breaking the rule that holds everywhere else here: the schema drives the product, the product doesn't presume the schema. Either value can be pinned per task, and a pinned value looks different from an inherited one so you can tell at a glance.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head prose">
+      <p class="eyebrow">Budget</p>
+      <h2>Spending you can see, and stop</h2>
+      <p>A band across the top of the main pane carries what the project <em>is</em> on the left — version read live from the workspace, task counts — and what it is <em>costing</em> on the right: the three usage windows your Claude credentials carry. The 5-hour rolling window, the weekly allowance, and the separate allowance for Fable, the most capable tier.</p>
+      <p>Each bar ends at the hard limit and carries a <strong>draggable marker</strong>: a cap you set for yourself, somewhere below it. The point isn't to visualise consumption — it's to reserve headroom deliberately. You decide this project may burn 70% of the window and no more, so whatever else you do today still has room. <strong>Runs are blocked at your marker, not at the hard limit</strong>, with the reason and the reset time stated rather than a greyed-out button.</p>
+      <p>Two details that follow from taking that seriously. The Fable cap <strong>gates by routing</strong> — in the mockup Fable is over its cap, so tasks routed to <code>claude-fable-5</code> can't start while everything else runs normally, which is the whole reason the window is tracked separately. And a cap doesn't only block starting: it <strong>pauses a run already in flight</strong>, at the next operation boundary, and resumes it automatically when the window resets. Pausing isn't cancelling — completed operations stay applied, the agent keeps its context. In the dock, RCX-8 is sitting held for exactly that reason.</p>
+      <p><strong>The bars are the whole notification.</strong> No banner, no toast. A meter that is visibly clay on every screen has already said it; a warning strip on top is the same fact twice, and the second copy is the one you learn to dismiss without reading.</p>
+      <p>There's a second limit that isn't about money at all. <strong>One run at a time, per project</strong> — because every agent writes to the same filesystem, and two of them in one workspace will interleave edits and clobber each other with neither noticing. That's a correctness constraint, not a throughput setting, and the settings copy says so. Different projects have different workspace roots, so they run alongside each other freely, which is why the dock legitimately shows three at once.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head prose">
+      <p class="eyebrow">Control</p>
+      <h2>Everything that's running, everywhere</h2>
+      <p>The activity dock spans the full width of the window — <em>under</em> the sidebar, not inside the main pane. That placement is the whole argument: the dock is <strong>global, not workspace-scoped</strong>. A run you kicked off in Homelab an hour ago is precisely the thing you'd forget about while heads-down in Task Manager, so it sits in the one strip that never changes when you switch workspace. It's also the only screen besides the project grid where several project colours appear together, which is what that identity palette exists for.</p>
+      <p>Two honesty problems worth solving rather than papering over. <strong>Progress</strong>: once the agent has declared a plan the bar is real — completed operations over planned, <code>4/6</code>. Before that there is no denominator that isn't invented, so the row shows an indeterminate shimmer labelled <em>planning</em>. A bar that makes up a percentage is worse than one that says it doesn't know yet. <strong>Cancel</strong>: cancelling doesn't roll back, so the confirmation's job isn't "are you sure" — it's naming the three files already changed and saying outright that they stay changed. Pause, meanwhile, stops at the next operation boundary and never mid-operation; a half-written file isn't a state worth being able to reach.</p>
+      <p><strong>Safety is a floor and three modes.</strong> The floor is a two-entry deny list — <code>rm -rf /</code> and <code>git push --force</code> — which applies in every mode <em>including Allow everything</em> and is the one thing a task cannot override. Above it: allow everything · ask everything · ask for listed actions, set per project and overridable per task.</p>
+      <p>Deny and ask are different mechanisms rather than two strengths of one. The ask list is a tripwire — <em>stop and show me</em> — answered in the moment, run continues either way. The deny list is a refusal with <strong>no approve-anyway button</strong>; to run a denied command you edit the list in settings. That friction is the feature: it moves the decision out of a 1am approval prompt, where a mis-click costs a filesystem, and into a deliberate act with the pattern in front of you.</p>
+      <p>A denial doesn't kill the run, though — that would just make people disable the list to get work done. The refusal goes back to <em>the model</em> with its reason, so it adapts. The run screen shows exactly that: a force-push refused, and the non-forced push it proposed instead, which then asks. Workspace confinement sits underneath all of it and is not a setting at all.</p>
+      <p>Approval is <strong>as you go</strong>, not plan-first — the agent works and each operation that needs you stops when it comes up, because a plan composed before the model has read any files is mostly guesswork. The dry-run toggle covers the case where you do want the plan: it runs normally, shows every operation and diff, and applies none of them. Default policy is <em>ask everything</em>; loosen it per project once you trust the shape of the work.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head prose">
+      <p class="eyebrow">Epics</p>
+      <h2>A task that happens to contain tasks</h2>
+      <p><strong>An epic is a task whose size is Epic.</strong> <code>size</code> runs <code>XS · S · M · L · XL · Epic</code>, and that last value is what makes the task one — <code>kind</code> is derived, never set. There is no way to have an XL epic or an Epic-sized task that isn't one. It's also why <code>size</code> is the single field that had to leave the custom schema and become core: a field that changes what kind of thing a record <em>is</em> can't be optional per project. Children point at it with <code>parentId</code>, and that is the entire model. Because it's a task it inherits statuses, priority, custom fields, filters, the table, the board, model routing and runs — rather than needing a parallel implementation of each. A separate entity would have meant duplicating the schema engine, the view layer and the run pipeline for something that behaves almost identically.</p>
+      <p>It expands <em>in place</em> in the table: a disclosure triangle, <code>3/7 done</code>, and children as indented rows sharing the same columns. Expanding is view state, not navigation, so you can open an epic, scan it against everything else, and collapse without losing your place.</p>
+      <p><strong>Running an epic starts an orchestrator</strong> rather than a worker — one agent that reads the epic and dispatches the rest, one per subtask. It runs a tier above them, at <code>max</code> reasoning, because planning across seven subtasks is a harder problem than any one of them. Each subtask gets its own run record, its own operations and its own approvals, so a failure is attributable and the epic's other work is unaffected; the activity dock nests the children under the parent to keep that provenance visible. Concurrency is capped per project, because N parallel agents is N times the usage burn against the caps in the stats band.</p>
+      <p>Two things deliberately <em>don't</em> change. A child is an ordinary task — it appears in the table, matches filters, and keeps its own Run control, so being inside an epic constrains nothing. And safety is the stricter of epic and subtask: a permissive parent can't widen what its children are allowed to do. The one thing that <em>is</em> automatic: an epic moves itself to Done when the last child finishes, and back out if one reopens.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head prose">
+      <p class="eyebrow">Density</p>
+      <h2>Icons where the header already said it</h2>
+      <p>Priority, type and difficulty render as glyphs with no text. The column header names the dimension, so spelling out <em>Medium</em> in every row costs width and buys nothing; the word appears on hover and in the filter rail, where you're choosing rather than scanning. Four text columns became four narrow ones and the titles got the space back.</p>
+      <p>The risk in that is two scales that look alike, so they use different <strong>languages</strong>: priority grows in bar <em>height</em>, difficulty fills in dot <em>count</em>. Difficulty's unfilled steps are rings rather than dim discs — at 5px a fill difference alone is unreadable, and <code>●○○○</code> versus <code>●●●●</code> has to be legible at a glance or the column is decoration. Type isn't a scale at all, so it gets distinct silhouettes instead of a ramp.</p>
+      <p><strong>Sort gains an AI option.</strong> <em>Suggested</em> orders tasks by how they influence each other, so work that reshapes a later task comes first and you don't build the same thing twice. It's a snapshot, not a live sort — edit the set and the chip marks itself stale rather than silently reordering under you — and every position carries a one-line <em>because</em>, since an ordering you can't interrogate is one you stop trusting the first time it looks wrong.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow">Screens</p>
+      <h2>Thirteen views, one shell</h2>
+      <p>Real content throughout — these are this project's own tasks. Compose and Run are focused surfaces: they keep the workspace switcher, because the workspace still scopes them, and drop the facet rail, because there's no task set to filter.</p>
+    </div>
+
+    <div class="switch" role="tablist" aria-label="Screen">
+      <button role="tab" aria-selected="true"  data-btn="table">Table · epic</button>
+      <button role="tab" aria-selected="false" data-btn="select">Selection</button>
+      <button role="tab" aria-selected="false" data-btn="epic">Epic detail</button>
+      <button role="tab" aria-selected="false" data-btn="questions">Open questions</button>
+      <button role="tab" aria-selected="false" data-btn="design">Design</button>
+      <button role="tab" aria-selected="false" data-btn="tests">Tests</button>
+      <button role="tab" aria-selected="false" data-btn="review">Review</button>
+      <button role="tab" aria-selected="false" data-btn="compose">New task · AI</button>
+      <button role="tab" aria-selected="false" data-btn="run">Task run</button>
+      <button role="tab" aria-selected="false" data-btn="activity">Activity dock</button>
+      <button role="tab" aria-selected="false" data-btn="docs">Project docs</button>
+      <button role="tab" aria-selected="false" data-btn="switcher">Workspace switcher</button>
+      <button role="tab" aria-selected="false" data-btn="detail">Task detail</button>
+      <button role="tab" aria-selected="false" data-btn="board">Board</button>
+      <button role="tab" aria-selected="false" data-btn="home">All projects</button>
+      <button role="tab" aria-selected="false" data-btn="settings">Project settings</button>
+      <button role="tab" aria-selected="false" data-btn="fields">Field editor</button>
+    </div>
+
+    <div class="screen is-on" data-screen="table"    role="tabpanel"><div class="mount"></div>
+      <div class="notes">
+        <div class="note"><b>The rail is generated</b><p><code>status</code> and <code>priority</code> are core facets present in every workspace. <code>type</code>, <code>difficulty</code> and <code>layer</code> come from this project's schema — the small grey label on each facet head says which. Open Homelab and you get a different rail.</p></div>
+        <div class="note"><b>Filter left, present top</b><p>With filtering moved to the rail, the toolbar collapses to view, sort, group and count. No filter chips, no duplication — <code>16 of 28</code> is the only trace, and it's honest about what's hidden.</p></div>
+        <div class="note"><b>Epics expand in place</b><p>TM-20 is an epic — same table, same columns, a disclosure triangle and <code>3/7 done</code>. Its children render indented beneath it rather than on another screen, so you can scan them against the same columns and collapse without losing your place.</p></div>
+      </div>
+    </div>
+
+    <div class="screen" data-screen="select" role="tabpanel"><div class="mount"></div>
+      <div class="notes">
+        <div class="note"><b>Floating, because selection is transient</b><p>The bar appears over the table and above the dock, and leaves on <code>Esc</code>. Permanent chrome for a temporary state is chrome you look at all day for nothing.</p></div>
+        <div class="note"><b>"Run 3 separately" is not "make an epic"</b><p>Run queues three independent runs with no orchestrator and no shared plan. The label says <em>separately</em> so the difference is discovered before you press it rather than afterwards.</p></div>
+        <div class="note"><b>Merge is compose, pointed differently</b><p>Same pipeline as the AI composer — but the input is the selected tasks and the output is their <em>parent</em>. Claude drafts the epic's title, description and fields from the children, and like compose it returns a draft you edit before anything is reparented.</p></div>
+      </div>
+    </div>
+
+    <div class="screen" data-screen="questions" role="tabpanel"><div class="mount"></div>
+      <div class="notes">
+        <div class="note"><b>Ask rather than guess</b><p>Compose doesn't always have enough to work with. Rather than inventing an answer and being confidently wrong, the task lands here carrying what Claude actually needs to know — and there's no Run button, because there's nothing to run yet.</p></div>
+        <div class="note"><b>Answering re-evaluates</b><p>The answers change the task, so clearing the last one triggers a re-evaluation of description, size and priority before it moves to Ready. Answering a question and leaving a stale estimate behind would be half the job.</p></div>
+        <div class="note"><b>Choices or prose</b><p>Q2 offers options because there are only two sensible answers; Q1 didn't, so it took free text. Either way the reply is input to Claude, not a form field it writes down verbatim.</p></div>
+      </div>
+    </div>
+
+    <div class="screen" data-screen="design" role="tabpanel"><div class="mount"></div>
+      <div class="notes">
+        <div class="note"><b>Decide before implementing</b><p>Where validation errors surface changes the API shape, so building first and deciding later means building twice. The design gate exists to catch exactly the decisions that are cheap now and expensive after the code exists.</p></div>
+        <div class="note"><b>Claude decides when it's resolved</b><p>Picking an option is <em>input</em>, not necessarily an answer. If your reply opens a new question the task stays in Design — the gate clears when the direction is unambiguous, not when a button was clicked.</p></div>
+        <div class="note"><b>Options carry their cost</b><p>Each card says what the approach gives up, not just what it does — "loses which field each warning belongs to", "costs a round trip". Three options with no trade-offs stated is a preference poll, not a design decision.</p></div>
+      </div>
+    </div>
+
+    <div class="screen" data-screen="tests" role="tabpanel"><div class="mount"></div>
+      <div class="notes">
+        <div class="note"><b>Regression plus task-specific</b><p>The project's suite runs on every task; a task can add its own on top. The Kind column keeps them distinguishable, because "did I break something" and "did I build the right thing" are different questions with different responses.</p></div>
+        <div class="note"><b>Failure is a loop, not a stop</b><p>A red test sends the task back to Executing with the output attached as the next run's brief — so the agent starts knowing what broke. It only moves forward when everything passes; there's no override, because a gate you can wave past is one nobody trusts.</p></div>
+        <div class="note"><b>The failure explains itself</b><p>The output isn't a stack trace dump — it names the expectation, the actual, and points at the answer from Q1 that the code contradicts. That's what makes it usable as a brief rather than just evidence.</p></div>
+      </div>
+    </div>
+
+    <div class="screen" data-screen="review" role="tabpanel"><div class="mount"></div>
+      <div class="notes">
+        <div class="note"><b>AI review opens the app</b><p>It doesn't just read the diff — it spawns whatever views it needs to see the result, and says which ones. Here it caught a cache that survives project deletion, which no test covered and no diff makes obvious.</p></div>
+        <div class="note"><b>Manual review is briefed, not dumped</b><p>The one gate a model can't clear, so Claude's job is making yours small: what changed in plain language, a specific checklist of what to look for, and a way in. "Please review" with a diff attached is how review becomes rubber-stamping.</p></div>
+        <div class="note"><b>The checklist is falsifiable</b><p>Each item is an action with an expected result — write Homelab's key to a Task Manager task, <em>it should be rejected</em>. Not "check validation works", which you can convince yourself of without looking.</p></div>
+      </div>
+    </div>
+
+    <div class="screen" data-screen="epic" role="tabpanel"><div class="mount"></div>
+      <div class="notes">
+        <div class="note"><b>An epic is a task</b><p>It carries <code>kind: "epic"</code> and nothing else is special — so it inherits statuses, priority, custom fields, filters, routing and runs instead of needing a parallel implementation of each. Children point at it with <code>parentId</code>.</p></div>
+        <div class="note"><b>Run epic spawns an orchestrator</b><p>One agent reads the epic and dispatches the rest, one per subtask, each with its own run record and approvals. It runs a tier above the workers — <code>max</code> reasoning here — because planning across seven subtasks is harder than any one of them.</p></div>
+        <div class="note"><b>The epic never captures a task</b><p>Every child keeps its own ▶ control. TM-12 is mid-run on its own right now while the rest sit idle — being inside an epic constrains nothing.</p></div>
+      </div>
+    </div>
+
+    <div class="screen" data-screen="compose" role="tabpanel"><div class="mount"></div>
+      <div class="notes">
+        <div class="note"><b>The schema writes the prompt</b><p>Claude extracts <code>type</code>, <code>difficulty</code> and <code>layer</code> because they're in <em>this</em> workspace's <code>fieldSchema</code> — the same source that validates API writes. A workspace without them never sees them. No per-project prompting.</p></div>
+        <div class="note"><b>Draft, not commit</b><p>Nothing is created until you press the button. Every inferred value is editable in place, and the model's confidence shows as absence: <code>assignee</code> is left empty rather than guessed, and says so.</p></div>
+        <div class="note"><b>Show the cost</b><p>Model, latency and token counts sit in the footer of every AI surface. A tool that spends your money on each keystroke should say how much, where you can see it without going looking.</p></div>
+      </div>
+    </div>
+
+    <div class="screen" data-screen="run"     role="tabpanel"><div class="mount"></div>
+      <div class="notes">
+        <div class="note"><b>Risk is the visual axis</b><p>Operations are coloured by what they can do, not by what they are: <code>read</code>/<code>grep</code> neutral, <code>write</code>/<code>edit</code> steel, <code>bash</code> clay. Reads auto-run; writes and commands meet the workspace's approval policy.</p></div>
+        <div class="note"><b>Scoped, and it says so</b><p>The workspace path is in the header of every run, not buried in settings. A project with no <code>workspacePath</code> has no Run button at all — absent, not disabled, because there's nothing to explain.</p></div>
+        <div class="note"><b>Refused, then adapted</b><p><code>git push --force</code> hit the deny list — struck through, refused, no approve button. The refusal went back to the model with its reason rather than killing the run, so it proposed a plain push instead, which lands on the <em>ask</em> list and waits for you. Two mechanisms, one sequence.</p></div>
+      </div>
+    </div>
+
+    <div class="screen" data-screen="activity" role="tabpanel"><div class="mount"></div>
+      <div class="notes">
+        <div class="note"><b>Global, not workspace-scoped</b><p>The dock spans the full window — under the sidebar, not inside the main pane — because it shows every run in every project. That's the point: a run you started in Homelab an hour ago is exactly what you'd forget while working here.</p></div>
+        <div class="note"><b>Progress that admits ignorance</b><p>Once the agent declares a plan the bar is real: <code>4/6</code> operations. Before that there's no honest denominator, so RCX-8 shows an indeterminate shimmer labelled <em>planning</em> rather than a fabricated percentage.</p></div>
+        <div class="note"><b>The dialog's job is one sentence</b><p>Cancelling does not roll back. So the confirmation names the three files already changed and says so outright, rather than asking "are you sure?" and letting you assume an undo that doesn't exist.</p></div>
+      </div>
+    </div>
+
+    <div class="screen" data-screen="docs"    role="tabpanel"><div class="mount"></div>
+      <div class="notes">
+        <div class="note"><b>The folder is the wiki</b><p>This is <code>docs/</code> inside the workspace, rendered — not an import. Edit the files in your editor, commit them with the code, and the tool shows whatever is on disk now. No <code>docs/</code> folder means the button is disabled and says why.</p></div>
+        <div class="note"><b>The rail is contextual</b><p>Same slot, different content: facets on a task list, the file tree here. Filtering has nothing to act on in a document, the same reason the rail is absent from compose and run.</p></div>
+        <div class="note"><b>Rendered to the design system</b><p>Markdown picks up the type scale, mono treatment and code-block styling from the tokens below, so a doc reads like part of the tool rather than a browser default. Images render inline; relative links navigate in-app.</p></div>
+      </div>
+    </div>
+
+    <div class="screen" data-screen="switcher" role="tabpanel"><div class="mount"></div>
+      <div class="notes">
+        <div class="note"><b>Scope, not navigation</b><p>Picking a workspace here re-scopes the whole UI, so it earns a dedicated menu rather than a list you scroll past all day. Open counts sit inline so the choice is informed.</p></div>
+        <div class="note"><b>Where the exits live</b><p>Project settings, New project and All projects hang off the bottom of this menu. They're workspace-level actions, so they belong where the workspace is chosen — not in a separate settings hunt.</p></div>
+        <div class="note"><b>Archived stays reachable</b><p>One collapsed row rather than a hidden preference. Archived projects can still be opened as workspaces, and stay fully addressable over the API regardless.</p></div>
+      </div>
+    </div>
+
+    <div class="screen" data-screen="detail"   role="tabpanel"><div class="mount"></div>
+      <div class="notes">
+        <div class="note"><b>Panel, not a page</b><p>The detail slides over the list so surrounding rows stay visible and you never lose your place in a triage pass. Still deep-linkable — <code>/t/TM-3</code> loads full-page on a cold open.</p></div>
+        <div class="note"><b>Edit in place, always</b><p><code>Size</code> is mid-edit here. Click a value, pick, blur to save. No modals, no Save button, and the write goes out optimistically — the row behind updates before the server answers. Setting it to <code>Epic</code> is what promotes a task.</p></div>
+        <div class="note"><b>No author, only time</b><p>Writes are anonymous, so the panel ends in timestamps rather than an activity feed. <code>assignee</code> survives because it's a value you set, not one derived from who made the request.</p></div>
+      </div>
+    </div>
+
+    <div class="screen" data-screen="board"    role="tabpanel"><div class="mount"></div>
+      <div class="notes">
+        <div class="note"><b>Columns are per-project</b><p>These five come from this workspace's <code>statuses</code>, not a hardcoded list. A content project could run Draft → Editing → Published and the board wouldn't need to know.</p></div>
+        <div class="note"><b>The rail still applies</b><p>Switching view doesn't reset the set. The same status and type filters narrow the board, which is exactly why filtering had to leave the toolbar — it outlives the view.</p></div>
+        <div class="note"><b>Done recedes</b><p>Completed cards drop to 62% opacity rather than getting a green treatment. Finished work should be present but quiet; the eye belongs on the middle columns.</p></div>
+      </div>
+    </div>
+
+    <div class="screen" data-screen="home"     role="tabpanel"><div class="mount"></div>
+      <div class="notes">
+        <div class="note"><b>No rail here</b><p>Root is pre-workspace: nothing is scoped yet, so there's nothing to filter. The grid gets the full width, and picking a card enters that workspace.</p></div>
+        <div class="note"><b>Colour as identity</b><p>Each project's colour appears as a tinted icon tile and its progress meter — never as a rail down the card edge. Tinted fill keeps five hues on screen without any of them dominating.</p></div>
+        <div class="note"><b>Open count leads</b><p>The number you act on is bold and first; completed work is secondary. The meter reads as done-over-total without needing a percentage label.</p></div>
+      </div>
+    </div>
+
+    <div class="screen" data-screen="settings" role="tabpanel"><div class="mount"></div>
+      <div class="notes">
+        <div class="note"><b>The rail, a third time</b><p>Facets on a task list, a file tree in docs, a section nav here. Same slot, contextual content — the rail always answers "what can I navigate within this surface", and settings has enough sections to need it.</p></div>
+        <div class="note"><b>A floor, then three modes</b><p>The deny list sits above the radio options because it isn't one of them — it applies in every mode, including Allow everything, and no task can override it. The ask list below <em>asks</em> and never refuses, which its own copy says outright since "blacklist" would imply the opposite.</p></div>
+        <div class="note"><b>Auto-push is not auto-commit</b><p>Committing is local and reversible, so it's a plain toggle. Pushing publishes model-authored commits where teammates and CI see them, so it gets the clay treatment, an explanation of consequence rather than a restated label, and a dependency on auto-commit.</p></div>
+      </div>
+    </div>
+
+    <div class="screen" data-screen="fields" role="tabpanel"><div class="mount"></div>
+      <div class="notes">
+        <div class="note"><b>Two toggles, two surfaces</b><p><code>Column</code> puts a field in the table; <code>Facet</code> puts it in the left rail. <code>layer</code> is a facet but not a column; <code>effort</code> is both; <code>spike</code> is neither.</p></div>
+        <div class="note"><b>Removal is soft</b><p><code>spike</code> is hidden but still holds values on four tasks, and says so. Nothing about "remove this field" should feel like it might be destructive, because it isn't.</p></div>
+        <div class="note"><b>Keys are mono, labels are not</b><p><code>difficulty</code> in blue mono is the identifier an agent writes; "Difficulty" is what you read. The typographic split is the whole convention — mono means addressable.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow">Tokens</p>
+      <h2>Palette</h2>
+      <p>Nine neutrals, one accent, six semantics. Everything on screen comes from this list — no ad-hoc colour.</p>
+    </div>
+    <h3 style="margin-bottom:12px">Ground — warm graphite</h3>
+    <div class="ramp">
+      <div class="sw"><span class="chipcolor" style="background:#131211"></span><span class="meta"><span class="nm">bg/base</span><span class="hx">#131211</span></span></div>
+      <div class="sw"><span class="chipcolor" style="background:#1A1918"></span><span class="meta"><span class="nm">bg/surface</span><span class="hx">#1A1918</span></span></div>
+      <div class="sw"><span class="chipcolor" style="background:#222120"></span><span class="meta"><span class="nm">bg/raised</span><span class="hx">#222120</span></span></div>
+      <div class="sw"><span class="chipcolor" style="background:#292826"></span><span class="meta"><span class="nm">bg/overlay</span><span class="hx">#292826</span></span></div>
+      <div class="sw"><span class="chipcolor" style="background:#3A3835"></span><span class="meta"><span class="nm">border/strong</span><span class="hx">#3A3835</span></span></div>
+      <div class="sw"><span class="chipcolor" style="background:#7A756E"></span><span class="meta"><span class="nm">text/muted</span><span class="hx">#7A756E</span></span></div>
+      <div class="sw"><span class="chipcolor" style="background:#9C978F"></span><span class="meta"><span class="nm">text/secondary</span><span class="hx">#9C978F</span></span></div>
+      <div class="sw"><span class="chipcolor" style="background:#EAE7E1"></span><span class="meta"><span class="nm">text/primary</span><span class="hx">#EAE7E1</span></span></div>
+    </div>
+    <h3 style="margin-bottom:12px">Accent — blueprint blue</h3>
+    <div class="ramp">
+      <div class="sw"><span class="chipcolor" style="background:#3D7FA8"></span><span class="meta"><span class="nm">accent/solid</span><span class="hx">#3D7FA8</span></span></div>
+      <div class="sw"><span class="chipcolor" style="background:#6FA8CE"></span><span class="meta"><span class="nm">accent</span><span class="hx">#6FA8CE</span></span></div>
+      <div class="sw"><span class="chipcolor" style="background:#8CBEDE"></span><span class="meta"><span class="nm">accent/hover</span><span class="hx">#8CBEDE</span></span></div>
+      <div class="sw"><span class="chipcolor" style="background:#1F2A31"></span><span class="meta"><span class="nm">accent/tint</span><span class="hx">13% on base</span></span></div>
+    </div>
+    <h3 style="margin-bottom:12px">Semantic</h3>
+    <div class="semrow">
+      <span class="sem"><span class="ring" style="color:#6B6660"></span>Backlog <code>#6B6660</code></span>
+      <span class="sem"><span class="ring" style="color:#9AA3AE"></span>Todo <code>#9AA3AE</code></span>
+      <span class="sem"><span class="half" style="color:#C99A54"></span>In Progress <code>#C99A54</code></span>
+      <span class="sem"><span class="ring" style="color:#A78BC5"></span>In Review <code>#A78BC5</code></span>
+      <span class="sem"><span class="dot" style="background:#6FA57C"></span>Done <code>#6FA57C</code></span>
+      <span class="sem"><span class="dot" style="background:#55514C"></span>Cancelled <code>#55514C</code></span>
+    </div>
+    <div class="semrow">
+      <span class="sem"><span class="bars"><i style="background:#CB6F63"></i><i style="background:#CB6F63"></i><i style="background:#CB6F63"></i></span>Urgent <code>#CB6F63</code></span>
+      <span class="sem"><span class="bars"><i style="background:#C99A54"></i><i style="background:#C99A54"></i><i></i></span>High <code>#C99A54</code></span>
+      <span class="sem"><span class="bars"><i style="background:#7E9FBE"></i><i></i><i></i></span>Medium <code>#7E9FBE</code></span>
+      <span class="sem"><span class="bars"><i></i><i></i><i></i></span>Low <code>#3A3835</code></span>
+    </div>
+    <p style="font-size:13.5px;color:var(--tx-secondary);max-width:660px;margin-top:16px">Brass appears twice on purpose — as <em>In Progress</em> and as <em>High</em>. Both mean the same thing, and the glyphs differ (a half-filled ring versus stacked bars) so the column never has to be read twice. Custom-field values (<code>type</code>, <code>difficulty</code>, <code>layer</code>) stay deliberately uncoloured: colour is reserved for state, and a schema that can grow without limit can't be given a palette that grows with it.</p>
+    <h3 style="margin:34px 0 12px">Operation risk</h3>
+    <div class="semrow">
+      <span class="sem"><span class="op-kind safe">read</span>Safe — auto-runs <code>#7A756E</code></span>
+      <span class="sem"><span class="op-kind write">edit</span>Writes a file <code>#6FA8CE</code></span>
+      <span class="sem"><span class="op-kind exec">bash</span>Runs a command <code>#CB6F63</code></span>
+    </div>
+    <p style="font-size:13.5px;color:var(--tx-secondary);max-width:660px;margin-top:16px">The one place the accent carries meaning rather than interaction. On a run screen the question is never "what kind of operation is this" but "what can it do to my machine", so the palette answers that instead: neutral for reads, the system accent for writes, clay — the same tone as <em>Urgent</em> — for anything that executes.</p>
+    <h3 style="margin:34px 0 12px">Project identity</h3>
+    <div class="semrow">
+      <span class="sem"><span class="tile" style="background:rgba(111,168,206,.18);color:#6FA8CE">&#9672;</span>Steel</span>
+      <span class="sem"><span class="tile" style="background:rgba(111,165,124,.16);color:#6FA57C">&#8962;</span>Sage</span>
+      <span class="sem"><span class="tile" style="background:rgba(201,154,84,.16);color:#C99A54">&#10022;</span>Brass</span>
+      <span class="sem"><span class="tile" style="background:rgba(203,111,99,.16);color:#CB6F63">&#9650;</span>Clay</span>
+      <span class="sem"><span class="tile" style="background:rgba(167,139,197,.16);color:#A78BC5">&#8801;</span>Violet</span>
+      <span class="sem"><span class="tile" style="background:rgba(95,163,155,.16);color:#5FA39B">&#9680;</span>Teal</span>
+      <span class="sem"><span class="tile" style="background:rgba(192,126,155,.16);color:#C07E9B">&#10005;</span>Rose</span>
+      <span class="sem"><span class="tile" style="background:rgba(138,133,128,.18);color:#8A8580">&#9679;</span>Grey</span>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow">Tokens</p>
+      <h2>Type &amp; geometry</h2>
+      <p>Native system faces. Monospace is reserved for identifiers — anything you could put in a URL or a JSON key.</p>
+    </div>
+    <div class="scale">
+      <div><span class="spec">28 / 600 / -.02em</span><span class="demo" style="font-size:28px;font-weight:600;letter-spacing:-.02em">Projects</span></div>
+      <div><span class="spec">17 / 600 / -.01em</span><span class="demo" style="font-size:17px;font-weight:600;letter-spacing:-.01em">Per-project field schema validation</span></div>
+      <div><span class="spec">13.5 / 600 — workspace</span><span class="demo" style="font-size:13.5px;font-weight:600">Task Manager</span></div>
+      <div><span class="spec">13 / 450 — table row</span><span class="demo" style="font-size:13px;font-weight:450">Board view with drag-and-drop status changes</span></div>
+      <div><span class="spec">12.5 / 400 — facet item</span><span class="demo" style="font-size:12.5px;color:var(--tx-secondary)">In Progress</span></div>
+      <div><span class="spec">mono 11 — identifiers</span><span class="demo" style="font-family:var(--font-mono);font-size:11px;color:var(--ac)">TM-14 · difficulty · in_progress</span></div>
+      <div><span class="spec">mono 10 / .11em / caps</span><span class="demo" style="font-family:var(--font-mono);font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--tx-muted)">Difficulty</span></div>
+    </div>
+    <div class="two" style="margin-top:40px">
+      <div>
+        <h3>Geometry</h3>
+        <ul class="tight">
+          <li><strong>4px spacing grid.</strong> Table rows 33px, facet items 25px, rail 240px, detail panel 430px.</li>
+          <li><strong>Radii by role:</strong> 6px controls, 10px cards, 14px panels. Never larger — soft corners at this density read as toy-like.</li>
+          <li><strong>1px hairlines, not shadows.</strong> Structure comes from borders and background steps. The only elevation shadows are the workspace menu and a card mid-drag.</li>
+          <li><strong>Tabular numerals</strong> anywhere digits stack: facet counts, effort, timestamps.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Motion &amp; interaction</h3>
+        <ul class="tight">
+          <li><strong>120–200ms, ease-out.</strong> Menu open, panel slide, facet collapse, view switch. Nothing longer, nothing decorative.</li>
+          <li><strong>Hover is instant</strong> (0ms in, 140ms out) so scanning a table never feels laggy.</li>
+          <li><strong>Optimistic first.</strong> The UI commits immediately and reconciles on response; a rejected write flashes the row clay and reverts.</li>
+          <li><strong>Keyboard:</strong> <code>⌘K</code> palette · <code>⌘P</code> switch workspace · <code>C</code> new · <code>/</code> search · <code>J/K</code> move · <code>E</code> edit · <code>Esc</code> close.</li>
+          <li><code>prefers-reduced-motion</code> drops every transition to zero.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head prose">
+      <p class="eyebrow">Before code</p>
+      <h2>Nothing still open</h2>
+      <p>None outstanding. Settled across the last two revisions: approve-as-you-go with a dry-run toggle · ask-everything by default · 33px rows, one density · a two-entry deny list · <code>size</code> replacing <code>effort</code> as <code>XS</code>–<code>Epic</code>, which dissolved the range-facet question and made epics fall out of a field value · model and effort shown as one value · priority, type and difficulty as icons · suggested order · pause-on-cap with auto-resume · scheduled runs · one run at a time, project-configurable · orchestrator concurrency project-defined · epics auto-completing when their last child does.</p>
+      <p>The next thing I'd build is the design system itself — tokens, then the component library, then these screens against mock data — which is the milestone you picked at the start. Say the word and I'll start on it.</p>
+    </div>
+    <div class="prose" style="display:none">
+      <div class="ask"><b>Orchestrator concurrency</b><p>How many subtask agents may an epic run at once? Each parallel worker multiplies the usage burn against the caps in the stats band, and seven at a time will hit a 5-hour window fast. A project-level ceiling with a low default (2–3) seems right, but the number is yours.</p></div>
+      <div class="ask"><b>What does an epic's status mean?</b><p>Right now an epic has its own status <em>and</em> reports <code>3/7 done</code> from its children, which can disagree — an epic marked In Progress with every child done. Deriving status automatically would fix that but make "this epic is blocked" unsayable while children are green. I've kept them independent; worth confirming that's the trade you want.</p></div>
+    </div>
+  </section>
+
+  <footer>Task Manager · design language rev G · warm graphite · dark-only by specification</footer>
+</div>
+
+<script>
+(function(){
+  var SEARCH_ICON = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" '
+    + 'stroke="currentColor" stroke-width="1.6" style="flex:none">'
+    + '<circle cx="7" cy="7" r="4.5"/><path d="M10.6 10.6L14 14" stroke-linecap="round"/></svg>';
+
+  var PROJECTS = [
+    {ic:'&#9672;', nm:'Task Manager',   c:'111,168,206', hex:'#6FA8CE', open:17, on:true},
+    {ic:'&#8962;', nm:'Homelab',        c:'111,165,124', hex:'#6FA57C', open:9},
+    {ic:'&#10022;',nm:'Portfolio Site', c:'201,154,84',  hex:'#C99A54', open:4},
+    {ic:'&#9650;', nm:'RCX Briefings',  c:'203,111,99',  hex:'#CB6F63', open:23},
+    {ic:'&#8801;', nm:'Reading Queue',  c:'167,139,197', hex:'#A78BC5', open:31}
+  ];
+  function tile(p,cls){
+    return '<span class="tile'+(cls?' '+cls:'')+'" style="background:rgba('+p.c+',.17);color:'+p.hex+'">'+p.ic+'</span>';
+  }
+
+  /* ── workspace switcher button ───────────────────── */
+  function wsButton(){
+    var p = PROJECTS[0];
+    return '<div class="ws">'+tile(p)
+      + '<span class="ws-txt"><b>'+p.nm+'</b><span>'+p.open+' open</span></span>'
+      + '<span class="chev"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" '
+      + 'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+      + '<path d="M4 6.5L8 10.5L12 6.5"/></svg></span></div>';
+  }
+
+  /* ── workspace menu (open state) ─────────────────── */
+  function wsMenu(){
+    var rows = PROJECTS.map(function(p){
+      return '<a href="#"'+(p.on?' class="on"':'')+'>'+tile(p)+p.nm
+        + (p.on ? '<span class="tick">&#10003;</span>' : '<em>'+p.open+'</em>')+'</a>';
+    }).join('');
+    return '<div class="wsmenu">'
+      + '<div class="mlabel">Workspaces</div>' + rows
+      + '<a href="#" style="color:var(--tx-muted)">&#8250; Archived <em>7</em></a>'
+      + '<hr>'
+      + '<a href="#">Project settings</a>'
+      + '<a href="#">New project</a>'
+      + '<a href="#">All projects</a>'
+      + '</div>';
+  }
+
+  /* ── filter rail ─────────────────────────────────── */
+  function fitem(glyph,label,count,checked){
+    return '<label class="fitem'+(checked?' on':'')+'">'
+      + '<span class="fcheck'+(checked?' on':'')+'">&#10003;</span>'
+      + (glyph || '<span style="width:9px;flex:none"></span>')
+      + label + '<em>'+count+'</em></label>';
+  }
+  function facet(label,src,open,items){
+    return '<div class="facet"><div class="facet-head">'
+      + '<span class="caret">'+(open?'&#9662;':'&#8250;')+'</span>'+label
+      + '<span class="src">'+src+'</span></div>'
+      + (open ? items.join('') : '') + '</div>';
+  }
+  function rail(){
+    return '<div class="rail">'
+      + '<div class="searchbox">'+SEARCH_ICON+'<span>Search tasks</span><span class="kbd">/</span></div>'
+      /* The project's pipeline, in catalogue order — it picks which stages
+         apply, never their sequence. */
+      + facet('Status','pipeline',true,[
+          fitem('<span class="ring" style="color:#6B6660"></span>','Backlog',6,false),
+          fitem('<span class="ring" style="color:#A78BC5"></span>','Open questions',2,false),
+          fitem('<span class="ring" style="color:#5FA39B"></span>','Design',1,false),
+          fitem('<span class="ring" style="color:#9AA3AE"></span>','Ready',5,true),
+          fitem('<span class="half" style="color:#C99A54"></span>','Executing',3,true),
+          fitem('<span class="half" style="color:#C99A54"></span>','Testing',1,false),
+          fitem('<span class="ring" style="color:#6FA8CE"></span>','Manual review',1,false),
+          fitem('<span class="dot" style="background:#6FA57C"></span>','Done',9,false)
+        ])
+      + facet('Priority','core',true,[
+          fitem('<span class="bars"><i style="background:#CB6F63"></i><i style="background:#CB6F63"></i><i style="background:#CB6F63"></i></span>','Urgent',1,false),
+          fitem('<span class="bars"><i style="background:#C99A54"></i><i style="background:#C99A54"></i><i></i></span>','High',6,false),
+          fitem('<span class="bars"><i style="background:#7E9FBE"></i><i></i><i></i></span>','Medium',13,false),
+          fitem('<span class="bars"><i></i><i></i><i></i></span>','Low',8,false)
+        ])
+      + facet('Type','schema',true,[
+          fitem(typeIcon('feature'),'Feature',12,false),
+          fitem(typeIcon('bug'),'Bug',7,false),
+          fitem(typeIcon('chore'),'Chore',6,false),
+          fitem(typeIcon('spike'),'Spike',3,false)
+        ])
+      + facet('Difficulty','schema',true,[
+          fitem(diffIcon('trivial'),'Trivial',4,false),
+          fitem(diffIcon('easy'),'Easy',9,false),
+          fitem(diffIcon('moderate'),'Moderate',10,false),
+          fitem(diffIcon('hard'),'Hard',5,false)
+        ])
+      + facet('Size','core',true,[
+          fitem('<span class="pill sz">XS</span>','',3,false),
+          fitem('<span class="pill sz">S</span>','',9,false),
+          fitem('<span class="pill sz">M</span>','',10,false),
+          fitem('<span class="pill sz">L</span>','',4,false),
+          fitem('<span class="pill sz">XL</span>','',1,false),
+          fitem('<span class="pill sz epicsz">Epic</span>','',1,false)
+        ])
+      + facet('Layer','schema',false,[])
+      + facet('Labels','core',false,[])
+      + facet('Assignee','core',false,[])
+      + '<div class="rail-foot">Clear all &nbsp;<b>2</b></div>'
+      + '</div>';
+  }
+  /* ── stats band ──────────────────────────────────── */
+  function meter(label,pct,cap,reset){
+    var over = pct > cap;
+    return '<div class="meter-u'+(over?' blocked':'')+'">'
+      + '<div class="lbl">'+label+'<em>'+pct+'%</em></div>'
+      + '<div class="track">'
+      +   '<div class="fill" style="width:'+Math.min(pct,cap)+'%"></div>'
+      +   (over?'<div class="over" style="left:'+cap+'%;width:'+(pct-cap)+'%"></div>':'')
+      +   '<div class="cap" style="left:'+cap+'%" title="Your cap: '+cap+'%"></div>'
+      + '</div>'
+      + '<div class="reset">cap '+cap+'% · '+reset+'</div></div>';
+  }
+  function stats(){
+    return '<div class="statsband">'
+      + '<div class="stat-id"><span class="ver">v0.4.2</span>'
+      +   '<b>28</b> tasks<span>·</span><b>17</b> open<span>·</span>11 closed</div>'
+      + '<div class="meters">'
+      +   meter('5-hour',46,70,'resets 2h 14m')
+      +   meter('Weekly',71,85,'resets Sun')
+      +   meter('Fable',62,50,'resets Sun')
+      +   '<span class="expand"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" '
+      +     'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+      +     '<path d="M4 6.5L8 10.5L12 6.5"/></svg></span>'
+      + '</div></div>'
+      ;   /* No warning banner. The clay meter above is the notification —
+             a strip repeating it is the same fact twice, and the second copy
+             is the one people learn to dismiss without reading. */
+  }
+
+  /* ── docs ────────────────────────────────────────── */
+  var BOOK = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" '
+    + 'stroke-width="1.5" stroke-linejoin="round" style="flex:none">'
+    + '<path d="M2.5 3.2A1.2 1.2 0 013.7 2H7a1.5 1.5 0 011.5 1.5V14a1.2 1.2 0 00-1.2-1.2H2.5z"/>'
+    + '<path d="M13.5 3.2A1.2 1.2 0 0012.3 2H9a1.5 1.5 0 00-1.5 1.5V14a1.2 1.2 0 011.2-1.2h4.8z"/></svg>';
+  function docsBtn(active){
+    return '<div style="padding:6px 8px;border-bottom:1px solid var(--bd-subtle)">'
+      + '<a href="#" class="backlink'+(active?' on':'')+'"'
+      +   (active?' style="background:var(--bg-raised);color:var(--tx-primary);font-weight:500"':'')
+      +   '>'+BOOK+'Docs<em style="margin-left:auto;font-style:normal;font-size:11px;'
+      +   'color:var(--tx-muted);font-variant-numeric:tabular-nums">12</em></a></div>';
+  }
+  function docsTree(){
+    function f(name,ext,cls,on){
+      return '<a href="#" class="'+(cls||'')+(on?' on':'')+'">'+name
+        + (ext?'<span class="ext">'+ext+'</span>':'')+'</a>';
+    }
+    return '<div class="rail">'
+      + '<div class="facet-head" style="cursor:default"><span class="caret">&#9662;</span>docs/'
+      +   '<span class="src">workspace</span></div>'
+      + '<div class="tree">'
+      +   f('README.md','md')
+      +   f('architecture.md','md','',true)
+      +   f('api.md','md')
+      +   '<a href="#"><span class="fold">&#9662;</span>decisions</a>'
+      +   f('0001-sqlite.md','md','nest')
+      +   f('0002-agent-sdk.md','md','nest')
+      +   '<a href="#"><span class="fold">&#9662;</span>img</a>'
+      +   f('architecture.png','png','nest')
+      +   f('run-flow.png','png','nest')
+      +   f('CONTRIBUTING.md','md')
+      + '</div></div>';
+  }
+  function docPage(){
+    var svg = '<svg width="300" height="112" viewBox="0 0 300 112" fill="none" '
+      + 'font-family="ui-monospace,monospace" font-size="8">'
+      + '<rect x="6" y="8" width="86" height="28" rx="4" fill="#222120" stroke="#3A3835"/>'
+      + '<text x="49" y="26" fill="#EAE7E1" text-anchor="middle">HTTP :4400</text>'
+      + '<rect x="6" y="48" width="86" height="28" rx="4" fill="#222120" stroke="#3A3835"/>'
+      + '<text x="49" y="66" fill="#EAE7E1" text-anchor="middle">service</text>'
+      + '<rect x="6" y="88" width="86" height="20" rx="4" fill="#222120" stroke="#3A3835"/>'
+      + '<text x="49" y="102" fill="#9C978F" text-anchor="middle">sqlite</text>'
+      + '<rect x="160" y="8" width="90" height="28" rx="4" fill="rgba(111,168,206,.14)" stroke="#3D7FA8"/>'
+      + '<text x="205" y="26" fill="#8CBEDE" text-anchor="middle">Agent SDK</text>'
+      + '<rect x="160" y="62" width="90" height="28" rx="4" fill="#222120" stroke="#3A3835"/>'
+      + '<text x="205" y="80" fill="#9C978F" text-anchor="middle">workspace</text>'
+      + '<path d="M49 36v12M49 76v12M92 62h68M205 36v26" stroke="#3A3835" stroke-width="1"/>'
+      + '</svg>';
+    return '<div class="doc">'
+      + '<div class="crumbs">docs / architecture.md</div>'
+      + '<h1>Architecture</h1>'
+      + '<p>One Fastify process serves the REST API, the built UI, and the SSE streams on a '
+      +   'single port. Nothing else needs to be running &mdash; no database server, no '
+      +   'reverse proxy, no container.</p>'
+      + '<figure><div class="docimg">'+svg+'</div>'
+      +   '<figcaption>docs/img/architecture.png</figcaption></figure>'
+      + '<h2>Storage</h2>'
+      + '<p>SQLite via <code>better-sqlite3</code>. Core task columns are promoted and indexed; '
+      +   'everything schema-flexible lives in a JSON column, indexed on demand:</p>'
+      + '<pre><span class="c">-- custom fields are indexed without being declared</span>\n'
+      +   '<span class="k">CREATE INDEX</span> ix_layer <span class="k">ON</span> tasks (\n'
+      +   '  json_extract(fields, <span class="s">\'$.layer\'</span>)\n);</pre>'
+      + '<h2>Running tasks</h2>'
+      + '<ul><li>Every run is scoped to <code>workspacePath</code>; a project without one '
+      +   'cannot run at all.</li>'
+      +   '<li>Reads execute freely. Writes and shell commands meet the project&rsquo;s policy.</li>'
+      +   '<li>The full operation list, diffs, and output are recorded per run.</li></ul>'
+      + '<p style="color:var(--tx-muted);font-size:12.5px">See also '
+      +   '<a href="#">decisions/0002-agent-sdk.md</a> for why the runner is built on the '
+      +   'Agent SDK rather than a hand-rolled loop.</p>'
+      + '</div>';
+  }
+
+  function side(){ return '<aside class="side">'+wsButton()+docsBtn(false)+rail()+'</aside>'; }
+  function sideDocs(){ return '<aside class="side">'+wsButton()+docsBtn(true)+docsTree()+'</aside>'; }
+  /* Focused surfaces (compose, run) keep the workspace switcher — the workspace
+     still scopes them — but drop the facet rail: there is no task set to filter. */
+  function sideFocused(label){
+    return '<aside class="side">'+wsButton()+docsBtn(false)
+      + '<div class="rail"><a href="#" class="backlink">'
+      +   '<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" '
+      +   'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+      +   '<path d="M9.5 4L5.5 8L9.5 12"/></svg>'+label+'</a></div></aside>';
+  }
+
+  /* ── toolbar ─────────────────────────────────────── */
+  function toolbar(view,extra){
+    var seg = ['Table','Board','List'].map(function(v){
+      return '<span'+(v===view?' class="on"':'')+'>'+v+'</span>';
+    }).join('');
+    return '<div class="toolbar">'
+      + '<span class="viewsel">Open work <i class="dirty"></i>'
+      + '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" '
+      +   'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+      +   '<path d="M4 6.5L8 10.5L12 6.5"/></svg></span>'
+      + '<div class="vsep"></div>'
+      + '<div class="seg">'+seg+'</div>'
+      + '<span class="count"><b>8</b> of 28 tasks</span>'
+      + (extra||'')
+      + '<span class="chip push sortai">Sort <b>&#10022; Suggested</b></span>'
+      + '<span class="chip">Group <b>Status</b></span>'
+      + '<span class="chip save">Save view</span>'
+      + '<div class="vsep"></div>'
+      + '<span class="live"><i></i> live</span>'
+      + '<span class="btn">New task <span class="kbd">C</span></span>'
+      + '</div>';
+  }
+
+  /* ── table ───────────────────────────────────────── */
+  var COLS = ['<th style="width:30px"></th>','<th style="width:56px">Key</th>','<th>Title</th>',
+    '<th class="c" style="width:58px">Prio</th>','<th class="c" style="width:52px">Type</th>',
+    '<th class="c" style="width:66px">Diff</th>','<th class="c" style="width:56px">Size</th>',
+    '<th class="num" style="width:96px">Updated</th>'];
+  function group(caret,glyph,label,count,last){
+    return '<tr class="grouprow"><td colspan="8"'+(last?' style="border-bottom:0"':'')+'>'
+      + '<div class="gh"><span class="caret">'+caret+'</span>'+glyph+label+' <em>'+count+'</em></div></td></tr>';
+  }
+  function row(t){
+    var cls = 'task' + (t.sel?' sel':'') + (t.checked?' checked':'') + (t.child?' child':'');
+    return '<tr class="'+cls+'"><td>'
+      + '<span class="box'+(t.checked?' on':'')+'">'+(t.checked?'&#10003;':'')+'</span></td>'
+      + '<td class="key">'+(t.child?'<span class="guide"></span>':'')+t.k+'</td>'
+      + '<td class="title">'+t.t+'</td>'
+      + '<td class="icn">'+prioIcon(t.p)+'</td>'
+      + '<td class="icn">'+typeIcon(t.ty)+'</td>'
+      + '<td class="icn">'+diffIcon(t.df)+'</td>'
+      + '<td class="icn"><span class="pill sz">'+t.e+'</span></td>'
+      + '<td class="when">'+t.u+'</td></tr>';
+  }
+  /* An epic renders as a task row with a disclosure triangle and child progress.
+     Its size IS "Epic" — that value is what makes it one. */
+  function epicRow(e,open){
+    return '<tr class="task epic"><td><span class="box"></span></td>'
+      + '<td class="key"><span class="disc">'+(open?'&#9662;':'&#8250;')+'</span>'+e.k+'</td>'
+      + '<td class="title">'+e.t
+      +   '<span class="kidcount">'+e.done+'/'+e.total+' done</span></td>'
+      + '<td class="icn">'+prioIcon(e.p)+'</td>'
+      + '<td class="icn">'+typeIcon(e.ty)+'</td>'
+      + '<td class="icn">'+diffIcon(e.df)+'</td>'
+      + '<td class="icn"><span class="pill sz epicsz">Epic</span></td>'
+      + '<td class="when">'+e.u+'</td></tr>';
+  }
+  /* ── glyph vocabularies ──────────────────────────────
+     Two scales must stay distinguishable at 12px, so they use different
+     languages: priority grows in bar HEIGHT, difficulty fills in dot COUNT.
+     Type is not a scale, so it gets distinct silhouettes instead.          */
+  function svg(body,w){ return '<svg width="'+(w||13)+'" height="13" viewBox="0 0 16 16" '
+    + 'fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    + 'stroke-linejoin="round">'+body+'</svg>'; }
+  var TYPE_ICON = {
+    feature: svg('<path d="M8 2.5l1.6 3.5 3.9.4-2.9 2.6.8 3.8L8 10.9l-3.4 1.9.8-3.8L2.5 6.4l3.9-.4z"/>'),
+    /* Simplified to body + two antennae — legs turn to noise at 13px. */
+    bug:     svg('<rect x="4.6" y="6" width="6.8" height="7.4" rx="3.4"/>'
+               + '<path d="M5.8 3.2l1.4 2.2M10.2 3.2L8.8 5.4"/>'),
+    chore:   svg('<rect x="3" y="3" width="10" height="10" rx="2"/><path d="M5.8 8l1.6 1.7 2.8-3.4"/>'),
+    spike:   svg('<path d="M9 2.2L4.2 9h3.2l-.6 4.8L11.8 7H8.6z"/>')
+  };
+  var TYPE_LABEL = {feature:'Feature',bug:'Bug',chore:'Chore',spike:'Spike'};
+  var DIFF_N = {trivial:1,easy:2,moderate:3,hard:4};
+  var DIFF_LABEL = {trivial:'Trivial',easy:'Easy',moderate:'Moderate',hard:'Hard'};
+  function diffIcon(d){
+    var n = DIFF_N[d], out = '';
+    for(var i=1;i<=4;i++) out += '<i'+(i<=n?' class="on"':'')+'></i>';
+    return '<span class="diffdots" title="Difficulty: '+DIFF_LABEL[d]+'">'+out+'</span>';
+  }
+  function typeIcon(t){
+    return '<span class="tyicon" title="Type: '+TYPE_LABEL[t]+'">'+TYPE_ICON[t]+'</span>';
+  }
+  var PRIO_LABEL = {urgent:'Urgent',high:'High',med:'Medium',low:'Low'};
+  function prioIcon(p){
+    var fill = {urgent:'#CB6F63',high:'#C99A54',med:'#7E9FBE',low:''}[p];
+    var n = {urgent:3,high:2,med:1,low:0}[p];
+    var out='';
+    for(var i=1;i<=3;i++) out += '<i'+(i<=n?' style="background:'+fill+'"':'')+'></i>';
+    return '<span class="bars" title="Priority: '+PRIO_LABEL[p]+'">'+out+'</span>';
+  }
+
+  var INPROG = [
+    {k:'TM-4', t:'Table view: grouping, inline edit, column resize',        p:'high',ty:'feature',df:'moderate',e:'M', u:'18m ago'},
+    {k:'TM-3', t:'Per-project field schema validation, cached per project', p:'high',ty:'feature',df:'hard',    e:'L', u:'2h ago'},
+    {k:'TM-11',t:'SSE change stream and client revalidation',               p:'med', ty:'feature',df:'moderate',e:'S', u:'1h ago'}
+  ];
+  var TODO = [
+    {k:'TM-14',t:'Reject type changes on existing fields, suggest a new key',p:'high',ty:'chore',  df:'easy',    e:'S', u:'3d ago'},
+    {k:'TM-5', t:'Board view with drag-and-drop status changes',            p:'med', ty:'feature',df:'moderate',e:'M', u:'yesterday'},
+    {k:'TM-7', t:'Custom field editor in project settings',                 p:'med', ty:'feature',df:'moderate',e:'S', u:'yesterday'},
+    {k:'TM-16',t:'OpenAPI description generated from the Zod schemas',      p:'low', ty:'chore',  df:'trivial', e:'XS',u:'4d ago'}
+  ];
+  /* An epic, and its children — children are ordinary tasks with a parentId. */
+  var EPIC = {k:'TM-20', t:'Pagination overhaul', p:'high', ty:'feature', df:'hard',
+              e:'Epic', u:'12m ago', done:3, total:7};
+  var EPIC_KIDS = [
+    {k:'TM-12',t:'Cursor pagination on the task list endpoint',             p:'low', ty:'chore',  df:'easy',    e:'S', u:'2d ago'},
+    {k:'TM-21',t:'Cursor encoding is not stable across restarts',           p:'high',ty:'bug',    df:'moderate',e:'M', u:'1d ago'},
+    {k:'TM-22',t:'Backfill pagination tests for every list endpoint',       p:'med', ty:'chore',  df:'easy',    e:'M', u:'1d ago'}
+  ];
+  function taskTable(opts){
+    opts = opts||{};
+    function mk(list,extra){ return list.map(function(t){
+      var c = {}; for(var k in t) c[k]=t[k];
+      c.sel = (t.k===opts.sel);
+      if(extra) for(var j in extra) c[j]=extra[j];
+      if(opts.checked && opts.checked.indexOf(t.k)>=0) c.checked = true;
+      return row(c);
+    }).join(''); }
+    var body = group('&#9662;','<span class="half" style="color:#C99A54"></span>','Executing',3)
+      + mk(INPROG);
+    if(opts.short){
+      body += group('&#8250;','<span class="ring" style="color:#9AA3AE"></span>','Todo',5,true);
+    } else {
+      body += group('&#9662;','<span class="ring" style="color:#9AA3AE"></span>','Todo',5,true)
+        + epicRow(EPIC,opts.epicOpen)
+        + (opts.epicOpen ? mk(EPIC_KIDS,{child:true}) : '')
+        + mk(TODO);
+    }
+    return '<table><thead><tr>'+COLS.join('')+'</tr></thead><tbody>'+body+'</tbody></table>';
+  }
+
+  /* ── board ───────────────────────────────────────── */
+  function card(k,t,prio,ty,opts){
+    opts = opts||{};
+    return '<div class="card'+(opts.drag?' drag':'')+'"'+(opts.dim?' style="opacity:.62"':'')+'>'
+      + '<span class="k">'+k+'</span><span class="t">'+t+'</span>'
+      + '<div class="foot">'+prioIcon(prio)+typeIcon(ty)
+      +   '<span class="pill sz" style="margin-left:auto">'+(opts.sz||'M')+'</span></div></div>';
+  }
+  function col(glyph,label,count,cards){
+    return '<div><div class="col-head">'+glyph+label+' <em>'+count+'</em><span class="add">+</span></div>'
+      + '<div class="stack">'+cards+'</div></div>';
+  }
+  function board(){
+    return '<div class="board">'
+      + col('<span class="ring" style="color:#6B6660"></span>','Backlog',8,
+          card('TM-18','Import from Jira CSV','low','chore')
+        + card('TM-21','Saved filter presets per workspace','med','feature')
+        + card('TM-23','Trash and restore for deleted tasks','low','feature'))
+      + col('<span class="ring" style="color:#9AA3AE"></span>','Todo',5,
+          card('TM-14','Reject type changes on existing fields','high','chore')
+        + card('TM-7','Custom field editor in project settings','med','feature')
+        + card('TM-12','Cursor pagination on task list','low','chore')
+        + card('TM-16','OpenAPI description from Zod schemas','low','chore'))
+      + col('<span class="half" style="color:#C99A54"></span>','In Progress',3,
+          card('TM-5','Board view with drag-and-drop status changes','med','feature',{drag:true})
+        + card('TM-4','Table view: grouping, inline edit, resize','high','feature')
+        + card('TM-11','SSE change stream and revalidation','med','feature'))
+      + col('<span class="ring" style="color:#A78BC5"></span>','In Review',1,
+          '<div class="dropzone"></div>'
+        + card('TM-2','SQLite repository layer with JSON columns','urgent','feature'))
+      + col('<span class="dot" style="background:#6FA57C"></span>','Done',11,
+          card('TM-1','Define REST envelope and error codes','high','chore',{dim:true})
+        + card('TM-9','Project slug uniqueness and immutability','med','chore',{dim:true}))
+      + '</div>';
+  }
+
+  /* ── detail panel ────────────────────────────────── */
+  function panel(){
+    return '<div class="scrim"></div><aside class="panel">'
+      + '<div class="p-head"><span class="k">TM-3</span>'
+      + '<span class="half" style="color:#C99A54"></span>'
+      + '<span style="font-size:12px;color:var(--tx-secondary)">In Progress</span>'
+      + '<span class="btn" style="margin-left:auto;padding:4px 10px">Run <span class="kbd">R</span></span>'
+      + '<span class="x" style="margin-left:0">&#10005; <span class="kbd">Esc</span></span></div>'
+      + '<div class="p-body">'
+      + '<h3 class="p-title">Per-project field schema validation, cached per project</h3>'
+      + '<p class="p-desc">Build a Zod schema dynamically from each project&rsquo;s <code>fieldSchema</code> and cache it, invalidating on schema write. Unknown keys rejected by default; <code>?allowUnknownFields=true</code> auto-creates a text FieldDef instead.</p>'
+      + '<p class="p-desc" style="color:var(--tx-muted)">Required fields stay advisory over the API — an agent filing at 3am gets a <code>warnings[]</code> array, never a 422.</p>'
+      + '<dl class="props">'
+      +   '<dt>Status</dt><dd><span class="half" style="color:#C99A54"></span> In Progress</dd>'
+      +   '<dt>Priority</dt><dd>'+prioIcon('high')+' High</dd>'
+      +   '<dt>Size</dt><dd><span class="editing"><span class="pill sz">L</span>'
+      +     '<span class="caret-blink"></span></span></dd>'
+      +   '<dt>Assignee</dt><dd>Edu</dd>'
+      +   '<dt>Labels</dt><dd><span class="pill">schema</span> <span class="pill">validation</span></dd>'
+      + '</dl>'
+      + '<div class="p-sec">Task Manager fields</div>'
+      + '<dl class="props">'
+      +   '<dt>Type</dt><dd>'+typeIcon('feature')+' Feature</dd>'
+      +   '<dt>Difficulty</dt><dd>'+diffIcon('hard')+' Hard</dd>'
+      +   '<dt>Layer</dt><dd><span class="pill">storage</span></dd>'
+      + '</dl>'
+      + '<div class="p-sec">Execution</div>'
+      + '<dl class="props">'
+      /* Model and effort are one value: effort is meaningless without knowing
+         which model is spending it. */
+      +   '<dt>Model</dt><dd><span class="mdl">claude-opus-5'
+      +     '<span class="dot-sep">&middot;</span>xhigh'
+      +     '<span class="effdots"><i class="on"></i><i class="on"></i><i class="on"></i>'
+      +     '<i class="on"></i><i></i></span>'
+      +     '<span class="routed">routed &middot; hard</span></span></dd>'
+      +   '<dt>Schedule</dt><dd><span class="sched">&#9200; Fridays 20:00'
+      +     '<span class="routed">next in 2d</span></span></dd>'
+      +   '<dt>Last run</dt><dd style="color:var(--tx-secondary)">Succeeded &middot; 3d ago</dd>'
+      + '</dl>'
+      + '<div class="p-sec">Timestamps</div>'
+      + '<dl class="props">'
+      +   '<dt>Created</dt><dd style="color:var(--tx-secondary)">1 Aug 2026 · 4d ago</dd>'
+      +   '<dt>Updated</dt><dd style="color:var(--tx-secondary)">Today 14:12 · 2h ago</dd>'
+      +   '<dt>Closed</dt><dd style="color:var(--tx-muted)">&mdash;</dd>'
+      + '</dl>'
+      + '</div></aside>';
+  }
+
+  /* ── settings ────────────────────────────────────── */
+  function fieldRow(key,type,opts,column,facetOn,o){
+    o = o||{};
+    return '<div class="fieldrow'+(o.core?' core':'')+'"'+(o.dim?' style="opacity:.5"':'')+'>'
+      + '<span class="handle">&#10287;</span><span class="fkey">'+key+'</span>'
+      + '<span class="ftype">'+type+'</span><span class="fopts">'+opts+'</span>'
+      + '<span style="display:flex;gap:10px"><span class="toggle'+(column?' on':'')+'"></span>'
+      + '<span class="toggle'+(facetOn?' on':'')+'"></span></span>'
+      + '<span class="handle">&#8943;</span></div>';
+  }
+  function settings(){
+    var muted = function(s){ return '<span style="color:var(--tx-muted)">'+s+'</span>'; };
+    var pills = function(a){ return a.map(function(x){return '<span class="pill">'+x+'</span>';}).join(' '); };
+    return '<div class="settings">'
+      + '<div><h3>Core fields</h3><p style="font-size:12.5px;color:var(--tx-muted);margin:0 0 11px">'
+      +   'Present in every workspace and every API response. Not removable.</p>'
+      +   '<div style="display:flex;flex-direction:column;gap:5px">'
+      +   fieldRow('title','text',muted('Required'),true,false,{core:true})
+      +   fieldRow('status','select',muted('From workspace statuses'),true,true,{core:true})
+      +   fieldRow('priority','select',muted('none · low · medium · high · urgent'),true,true,{core:true})
+      +   fieldRow('size','select',pills(['XS','S','M','L','XL','Epic']),true,true,{core:true})
+      +   '</div></div>'
+      + '<div><h3>Custom fields</h3><p style="font-size:12.5px;color:var(--tx-muted);margin:0 0 11px">'
+      +   'Specific to this workspace. Adding is always safe; removing hides the field but keeps the data.</p>'
+      +   '<p style="font-size:11.5px;color:var(--tx-muted);margin:-6px 0 5px">'
+      +     '<code>size</code> is core because <code>Epic</code> changes what the task '
+      +     '<em>is</em>. A field that does that can&rsquo;t be optional per project.</p>'
+      +   '<div style="display:flex;flex-direction:column;gap:5px">'
+      +   fieldRow('type','select',pills(['feature','bug','chore','spike']),true,true)
+      +   fieldRow('difficulty','select',pills(['trivial','easy','moderate','hard']),true,true)
+      +   fieldRow('layer','select',pills(['api','ui','storage']),false,true)
+      +   fieldRow('spike','checkbox',muted('Hidden · 4 tasks still hold a value'),false,false,{dim:true})
+      +   '<div class="addrow">+ Add field</div>'
+      +   '</div>'
+      +   '<p style="font-size:11.5px;color:var(--tx-muted);margin:11px 0 0;display:flex;gap:16px;align-items:center">'
+      +     '<span style="display:flex;gap:7px;align-items:center"><span class="toggle on" style="transform:scale(.8)"></span> Table column</span>'
+      +     '<span style="display:flex;gap:7px;align-items:center"><span class="toggle on" style="transform:scale(.8)"></span> Filter facet</span>'
+      +   '</p>'
+      + '</div></div>';
+  }
+
+  /* ── project grid (root, no rail) ────────────────── */
+  function pcard(p,desc,pct,done,ago){
+    return '<div class="pcard"><div class="top">'+tile(p)+'<h5>'+p.nm+'</h5></div>'
+      + '<p class="sub">'+desc+'</p>'
+      + '<div class="meter"><i style="width:'+pct+'%;background:'+p.hex+'"></i></div>'
+      + '<div class="stats"><b>'+p.open+'</b> open<span>·</span>'+done+' done<span class="ago">'+ago+'</span></div></div>';
+  }
+  function home(){
+    return '<div class="home"><div class="home-head"><h4>Projects</h4>'
+      + '<p>84 open across 5 active · 7 archived</p>'
+      + '<span class="btn" style="margin-left:auto">New project <span class="kbd">&#8984;N</span></span></div>'
+      + '<div class="pgrid">'
+      + pcard(PROJECTS[0],'Local-first task service. REST API plus HTML UI on one port.',39,11,'18m ago')
+      + pcard(PROJECTS[1],'NAS, backups, Tailscale mesh, and the Proxmox rebuild.',71,22,'yesterday')
+      + pcard(PROJECTS[2],'Rewrite, case studies, and the writing section that never ships.',88,31,'3d ago')
+      + pcard(PROJECTS[3],'Client security briefings — research, drafts, and review cycles.',29,9,'2h ago')
+      + pcard(PROJECTS[4],'Papers, specs, and long-form. Filed by agent, triaged by hand.',18,7,'6h ago')
+      + '<div class="pcard" style="border-style:dashed;background:transparent;justify-content:center;'
+      +   'align-items:center;color:var(--tx-muted);font-size:12.5px">+ New project</div>'
+      + '</div>'
+      + '<div class="arch"><span>&#8250;</span> Archived <span style="color:var(--bd-strong)">7</span>'
+      + '<span style="margin-left:auto;font-size:12px">Still readable over the API</span></div></div>';
+  }
+
+  /* ── task view: tabbed full page ─────────────────────
+     Tabs appear only for stages this project's pipeline includes.        */
+  function taskView(active,status,statusCls,body,opts){
+    opts = opts||{};
+    var tabs = [
+      {id:'overview', label:'Overview'},
+      {id:'questions',label:'Questions', badge:'2', alert:true},
+      {id:'design',   label:'Design'},
+      {id:'tests',    label:'Tests',     badge:'1', alert:true},
+      {id:'review',   label:'Review'}
+    ].map(function(t){
+      return '<a href="#" class="'+(t.id===active?'on ':'')+(t.alert&&t.id!==active?'alert':'')+'">'
+        + t.label + (t.badge?'<em>'+t.badge+'</em>':'') + '</a>';
+    }).join('');
+    return '<div class="tv">'
+      + '<div class="tv-head">'
+      +   '<div class="tv-crumb"><span class="k">TM-3</span><span>&#8250;</span>'
+      +     '<span>Pagination overhaul</span></div>'
+      +   '<div class="tv-title"><h4>Per-project field schema validation, cached per project</h4>'
+      +     '<span class="statuspill '+statusCls+'">'+status+'</span>'
+      +     (opts.run!==false?'<span class="btn">&#9654; Run <span class="kbd">R</span></span>':'')
+      +   '</div></div>'
+      + '<div class="tabs">'+tabs+'</div>'
+      + '<div class="tv-body"><div class="tv-main">'+body+'</div>'+tvSide(opts)+'</div></div>';
+  }
+  function tvSide(opts){
+    opts = opts||{};
+    return '<aside class="tv-side">'
+      + '<div class="sfield"><b>Status</b><span><span class="half" style="color:#C99A54">'
+      +   '</span>'+(opts.sideStatus||'Executing')+'</span></div>'
+      + '<div class="sfield"><b>Priority</b><span>'+prioIcon('high')+'High</span></div>'
+      + '<div class="sfield"><b>Size</b><span><span class="pill sz">L</span></span></div>'
+      + '<div class="sfield"><b>Type &middot; Difficulty</b><span>'+typeIcon('feature')
+      +   'Feature<span style="color:var(--bd-strong)">&middot;</span>'
+      +   diffIcon('hard')+'Hard</span></div>'
+      + '<div class="sfield"><b>Layer</b><span><span class="pill">storage</span></span></div>'
+      + '<div class="sfield"><b>Model</b><span><span class="mdl">claude-opus-5'
+      +   '<span class="dot-sep">&middot;</span>xhigh</span></span></div>'
+      + '<div class="sfield"><b>Depends on</b><div class="deps">'
+      +   '<div class="dep metdep"><span class="k">TM-2</span>'
+      +     '<span class="t">SQLite repository layer</span><span class="st">&#10003;</span></div>'
+      +   '<div class="dep blocked"><span class="k">TM-1</span>'
+      +     '<span class="t">REST envelope &amp; error codes</span>'
+      +     '<span class="st">executing</span></div>'
+      + '</div></div>'
+      + '<div class="sfield"><b>Schedule</b><span class="sched">&#9200; Fridays 20:00</span></div>'
+      + '</aside>';
+  }
+
+  /* Overview tab — description, the stale prompt, dependency state */
+  function tvOverview(){
+    return ''
+      + '<div class="stale"><span style="color:var(--s-progress);flex:none">&#8635;</span>'
+      +   '<span class="txt"><b>Worth re-evaluating</b>'
+      +   'TM-2, which this depends on, finished 3 days ago and changed the repository '
+      +   'layer this task was written against. Re-reading your original prompt against '
+      +   'the project as it is now may change the description, size or dependencies '
+      +   '&mdash; or find the task is no longer needed.</span>'
+      +   '<span class="btn">Re-evaluate</span></div>'
+      + '<p class="tv-desc">Build a Zod schema dynamically from each project&rsquo;s '
+      +   '<code>fieldSchema</code> and cache it, invalidating on schema write. Unknown '
+      +   'keys rejected by default; <code>?allowUnknownFields=true</code> auto-creates a '
+      +   'text FieldDef instead.</p>'
+      + '<p class="tv-desc" style="color:var(--tx-muted)">Required fields stay advisory '
+      +   'over the API &mdash; an agent filing at 3am gets a <code>warnings[]</code> '
+      +   'array, never a 422.</p>'
+      + '<div class="p-sec">Original prompt <span style="letter-spacing:0;'
+      +   'text-transform:none;font-family:var(--font-ui);color:var(--tx-muted)">'
+      +   '&mdash; kept so re-evaluation has something to re-read</span></div>'
+      + '<p class="tv-desc" style="font-style:italic;color:var(--tx-secondary)">'
+      +   '&ldquo;the field validation needs to actually be per project, right now it&rsquo;s '
+      +   'one schema for everything and it rejects perfectly good writes&rdquo;</p>';
+  }
+
+  /* Questions tab */
+  function tvQuestions(){
+    return ''
+      + '<p class="tv-desc" style="color:var(--tx-muted)">Claude had two things it '
+      +   'couldn&rsquo;t infer. Answering both re-evaluates the task and moves it to '
+      +   '<b style="color:var(--tx-secondary)">Ready</b>.</p>'
+      + '<div class="qitem"><div class="qq"><span class="qn">Q1</span>'
+      +   '<span>When an unknown field key arrives and <code>allowUnknownFields</code> '
+      +   'is on, should the auto-created FieldDef be visible as a table column right '
+      +   'away, or hidden until someone turns it on?</span></div>'
+      +   '<div class="qa"><div class="qanswered"><span class="ok">&#10003;</span>'
+      +   '<span>Hidden. An agent inventing a column that shows up in my table without '
+      +   'me asking is exactly the failure mode.</span></div></div></div>'
+      + '<div class="qitem"><div class="qq"><span class="qn">Q2</span>'
+      +   '<span>The cache invalidates on schema write. Should a write from the API '
+      +   'invalidate every project&rsquo;s cache, or only the one whose schema '
+      +   'changed?</span></div>'
+      +   '<div class="qa"><div class="qchoices">'
+      +     '<span class="qchoice">Only that project</span>'
+      +     '<span class="qchoice">All projects</span>'
+      +     '<span class="qchoice">Not sure &mdash; you decide</span></div>'
+      +   '<div class="qinput" style="margin-top:8px">Or answer in your own words&hellip;'
+      +     '<span class="caret-blink"></span></div></div></div>';
+  }
+
+  /* Design tab */
+  function tvDesign(){
+    function shot(body){ return '<svg width="150" height="86" viewBox="0 0 150 86" fill="none">'
+      + body + '</svg>'; }
+    var a = shot('<rect x="8" y="8" width="134" height="16" rx="3" fill="#222120" stroke="#3A3835"/>'
+      + '<rect x="8" y="30" width="40" height="48" rx="3" fill="#222120" stroke="#3A3835"/>'
+      + '<rect x="54" y="30" width="88" height="48" rx="3" fill="#1A1918" stroke="#3A3835"/>');
+    var b = shot('<rect x="8" y="8" width="40" height="70" rx="3" fill="#222120" stroke="#3A3835"/>'
+      + '<rect x="54" y="8" width="88" height="20" rx="3" fill="#222120" stroke="#3A3835"/>'
+      + '<rect x="54" y="34" width="88" height="44" rx="3" fill="#1A1918" stroke="#3A3835"/>');
+    var c = shot('<rect x="8" y="8" width="134" height="70" rx="3" fill="#1A1918" stroke="#3A3835"/>'
+      + '<rect x="18" y="18" width="52" height="24" rx="3" fill="rgba(111,168,206,.16)" stroke="#3D7FA8"/>'
+      + '<rect x="80" y="18" width="52" height="24" rx="3" fill="#222120" stroke="#3A3835"/>'
+      + '<rect x="18" y="50" width="114" height="18" rx="3" fill="#222120" stroke="#3A3835"/>');
+    function opt(img,title,why,chosen){
+      return '<div class="dopt'+(chosen?' chosen':'')+'"><div class="shot">'+img+'</div>'
+        + '<div class="meta"><b>'+title+'</b><span>'+why+'</span></div>'
+        + '<div class="pick">'+(chosen?'&#10003; Chosen':'Choose')+'</div></div>';
+    }
+    return ''
+      + '<p class="tv-desc" style="color:var(--tx-muted)">Where validation errors surface '
+      +   'changes the API shape, so it needs deciding before implementation. Pick one, or '
+      +   'reply in your own words &mdash; Claude decides when the direction is unambiguous, '
+      +   'so a reply that raises a new question keeps the task here.</p>'
+      + '<div class="dgrid">'
+      +   opt(a,'Errors in the envelope','One <code>warnings[]</code> array at the top level. '
+      +     'Simplest to consume; loses which field each warning belongs to.',false)
+      +   opt(b,'Per-field, inline','Each field carries its own validation state. Verbose, '
+      +     'but a form can render it directly.',true)
+      +   opt(c,'Separate errors resource','<code>GET /tasks/:key/validation</code>. Keeps '
+      +     'the task payload clean; costs a round trip.',false)
+      + '</div>'
+      + '<div class="p-sec">Or reply</div>'
+      + '<div class="qinput">Describe the direction, or drop an image&hellip;'
+      +   '<span class="caret-blink"></span></div>';
+  }
+
+  /* Tests tab */
+  function tvTests(){
+    function t(name,kind,st,ms){
+      var ico = {pass:'&#10003;',fail:'&#10005;',skip:'&#8211;'}[st];
+      return '<tr'+(st==='fail'?' class="failrow"':'')+'><td class="nm">'+name+'</td>'
+        + '<td><span class="pill">'+kind+'</span></td>'
+        + '<td><span class="tstat '+st+'">'+ico+' '+st+'</span></td>'
+        + '<td class="ms">'+(ms||'&mdash;')+'</td></tr>';
+    }
+    return ''
+      + '<div class="testsum"><span><b>11</b> of 12 passed</span>'
+      +   '<span style="color:var(--p-urgent)">1 failed</span>'
+      +   '<span style="color:var(--tx-muted)">2.4s &middot; 4m ago</span>'
+      +   '<span class="chip" style="margin-left:auto">Re-run</span></div>'
+      + '<p class="tv-desc" style="color:#C79B95">A failure sends the task back to '
+      +   '<b>Executing</b> with this output as the next run&rsquo;s brief. It moves on '
+      +   'only when everything passes.</p>'
+      + '<table class="testtable"><thead><tr><th>Test</th><th style="width:96px">Kind</th>'
+      +   '<th style="width:96px">Result</th><th style="width:72px;text-align:right">Time</th>'
+      +   '</tr></thead><tbody>'
+      +   t('schema/validates-known-fields','task','pass','41ms')
+      +   t('schema/rejects-unknown-key','task','pass','18ms')
+      +   t('schema/allow-unknown-creates-field','task','fail','62ms')
+      +   t('schema/cache-invalidates-on-write','task','pass','9ms')
+      +   t('api/tasks-crud','regression','pass','310ms')
+      +   t('api/cursor-pagination','regression','pass','128ms')
+      +   t('api/error-envelope','regression','pass','74ms')
+      +   t('ui/table-renders-custom-columns','regression','pass','840ms')
+      +   t('ui/board-drag-drop','regression','skip','')
+      + '</tbody></table>'
+      + '<div class="failout">'
+      +   'schema/allow-unknown-creates-field\n'
+      +   '  expected field {key:"spike", showInTable:false}\n'
+      +   '  received field {key:"spike", showInTable:true}\n'
+      +   '  → auto-created fields must default to hidden (see Q1)</div>';
+  }
+
+  /* Review tab — AI verdict, then the manual brief */
+  function tvReview(){
+    return ''
+      + '<div class="verdict rejected"><span class="vico">&#8856;</span>'
+      +   '<span class="vtxt"><b>AI review &mdash; rejected</b>'
+      +   '<p>The cache is invalidated on schema write, but not on project delete, so a '
+      +   'recreated project with the same slug is served the previous schema. I opened '
+      +   '<code>/p/task-manager/settings</code> and the table view to confirm the stale '
+      +   'columns render.</p>'
+      +   '<p style="color:var(--tx-muted);font-size:11.5px">claude-opus-5 &middot; 2 views '
+      +   'opened &middot; 3m ago &mdash; sent back to Executing with this as the brief.</p>'
+      +   '</span></div>'
+      + '<div class="p-sec">Manual review</div>'
+      + '<p class="tv-desc">Claude changed how field validation is built so each project '
+      +   'gets its own compiled schema instead of sharing one. Writes that used to be '
+      +   'rejected for using another project&rsquo;s fields now succeed, and unknown keys '
+      +   'are refused unless you opt in.</p>'
+      + '<div class="p-sec">What to check</div>'
+      + '<div class="checklist">'
+      +   '<span class="chk"><i></i>Add a field to <b>Homelab</b>, then write that key to a '
+      +     '<b>Task Manager</b> task &mdash; it should be rejected, not accepted.</span>'
+      +   '<span class="chk"><i></i>Rename a field in settings and confirm the table column '
+      +     'header updates without a reload.</span>'
+      +   '<span class="chk"><i></i>POST with <code>?allowUnknownFields=true</code> and check '
+      +     'the new field arrives <em>hidden</em>, per your answer to Q1.</span>'
+      + '</div>'
+      + '<div class="entrypoint"><span style="color:var(--tx-muted);font-size:11.5px">'
+      +   'Open the review context</span>'
+      +   '<code>npm run dev &amp;&amp; open /p/homelab/settings</code>'
+      +   '<span class="btn" style="padding:5px 11px">Open</span></div>'
+      + '<div class="vactions"><span class="btn-ok">&#10003; Approve</span>'
+      +   '<span class="btn-quiet">Reject with a reason</span></div>';
+  }
+
+  /* ── bulk selection bar ──────────────────────────── */
+  function bulkBar(){
+    return '<div class="bulkwrap"><div class="bulk">'
+      + '<span class="cnt"><b>3</b> selected</span>'
+      + '<span class="sep"></span>'
+      + '<span class="bact">Delete</span>'
+      + '<span class="bact">Run 3 separately</span>'
+      + '<span class="bact primary">&#9672; Merge into epic</span>'
+      + '<span class="sep"></span>'
+      + '<span class="bact quiet">Clear <span class="kbd">Esc</span></span>'
+      + '</div></div>';
+  }
+
+  /* ── epic detail ─────────────────────────────────── */
+  function epicPage(){
+    function kid(t,st){
+      var glyph = {done:'<span class="dot" style="background:#6FA57C"></span>',
+                   run :'<span class="half" style="color:#C99A54"></span>',
+                   todo:'<span class="ring" style="color:#9AA3AE"></span>'}[st];
+      return '<tr class="task"><td style="width:26px">'+glyph+'</td>'
+        + '<td class="key">'+t.k+'</td><td class="title">'+t.t+'</td>'
+        + '<td class="icn" style="width:46px">'+typeIcon(t.ty)+'</td>'
+        + '<td class="icn" style="width:52px"><span class="pill sz">'+t.e+'</span></td>'
+        + '<td class="num" style="width:74px">'
+        +   (st==='run'?'<span class="thinking"><i></i></span>'
+             :'<span class="ibtn" title="Run this one">&#9654;</span>')+'</td></tr>';
+    }
+    return '<div class="epicpage">'
+      + '<div class="epichead">'
+      +   '<span class="epicmark big">epic</span><span class="k">TM-20</span>'
+      +   '<h4>Pagination overhaul</h4>'
+      +   '<span class="btn" style="margin-left:auto">&#9654; Run epic</span></div>'
+      + '<p class="epicdesc">Cursor pagination is wrong in three separate places and the '
+      +   'tests don&rsquo;t cover any of them. Fix the cursor, stabilise its encoding across '
+      +   'restarts, and backfill coverage for every list endpoint.</p>'
+      + '<div class="epicmeta">'
+      +   '<span class="em"><b>Progress</b><span class="prog"><span class="bar">'
+      +     '<i style="width:43%"></i></span><span class="n">3/7</span></span></span>'
+      +   '<span class="em"><b>Priority</b><span class="prio">'+prioIcon('high')+'High</span></span>'
+      +   '<span class="em"><b>Size</b><span class="pill sz epicsz">Epic</span></span>'
+      +   '<span class="em"><b>Orchestrator</b><span class="mdl">claude-opus-5'
+      +     '<span class="dot-sep">&middot;</span>max</span></span>'
+      +   '<span class="em"><b>Workers</b><span style="font-size:12.5px">'
+      +     '1 at a time <span class="routed" style="font-size:10px;color:var(--tx-muted)">'
+      +     'shared filesystem</span></span></span>'
+      + '</div>'
+      + '<div class="p-sec">Child tasks <span style="letter-spacing:0;text-transform:none;'
+      +   'font-family:var(--font-ui);color:var(--tx-muted)">— 7 tasks, run together by the '
+      +   'orchestrator or one at a time</span></div>'
+      + '<table class="kidtable"><tbody>'
+      +   kid({k:'TM-12',t:'Cursor pagination on the task list endpoint',ty:'chore',e:'S'},'run')
+      +   kid({k:'TM-21',t:'Cursor encoding is not stable across restarts',ty:'bug',e:'M'},'todo')
+      +   kid({k:'TM-22',t:'Backfill pagination tests for every list endpoint',ty:'chore',e:'M'},'todo')
+      +   kid({k:'TM-23',t:'Document the cursor format in docs/api.md',ty:'chore',e:'XS'},'todo')
+      +   kid({k:'TM-9', t:'Project slug uniqueness and immutability',ty:'chore',e:'S'},'done')
+      +   kid({k:'TM-1', t:'Define REST envelope and error codes',ty:'chore',e:'M'},'done')
+      +   kid({k:'TM-2', t:'SQLite repository layer with JSON columns',ty:'feature',e:'L'},'done')
+      + '</tbody></table></div>';
+  }
+
+  /* ── AI composer ─────────────────────────────────── */
+  function inf(label,value,empty){
+    return '<div class="inf'+(empty?' empty':'')+'"><b>'+label+'</b><span>'+value+'</span></div>';
+  }
+  function compose(){
+    return '<div class="compose">'
+      + '<div class="compose-head"><h4>New task</h4>'
+      +   '<p>Describe it however you like. Claude maps it onto this workspace&rsquo;s schema.</p></div>'
+      + '<div class="composebox">the api pagination thing is broken again &mdash; cursor resets '
+      +   'on the second page so you get the same rows twice. probably a day of work. '
+      +   'blocking the CLI release so it needs to jump the queue<span class="caret-blink"></span></div>'
+      + '<div class="compose-bar"><span class="thinking"><i></i> Reading schema &amp; drafting</span>'
+      +   '<span class="push" style="margin-left:auto">&#8984;&#9166; to compose &nbsp;·&nbsp; Esc to cancel</span></div>'
+      + '<div class="draft">'
+      +   '<div class="draft-head"><span class="ai">Draft</span>'
+      +     '<span style="letter-spacing:.11em">&mdash; every field editable before you create</span></div>'
+      +   '<div class="draft-body">'
+      +     '<div class="draft-title">Cursor pagination resets on the second page</div>'
+      +     '<p class="draft-desc">The task list endpoint returns the same rows twice when '
+      +       'paging: the cursor appears to reset rather than advance after the first page. '
+      +       'Blocking the CLI release.</p>'
+      +     '<div class="inferred">'
+      +       inf('Priority',prioIcon('urgent')+' Urgent')
+      +       inf('Type',typeIcon('bug')+' Bug')
+      +       inf('Difficulty',diffIcon('moderate')+' Moderate')
+      +       inf('Layer','<span class="pill">api</span>')
+      +       inf('Size','<span class="pill sz">L</span>')
+      +       inf('Assignee','Unassigned',true)
+      +     '</div>'
+      +     '<div class="warn">&#9888; No value inferred for <code>assignee</code> &mdash; '
+      +       'it&rsquo;s optional, and nothing in the text said who. The draft leaves it '
+      +       'empty rather than guessing you.</div>'
+      +   '</div>'
+      +   '<div class="draft-foot"><span class="btn">Create task <span class="kbd">&#8984;&#9166;</span></span>'
+      +     '<span class="chip">Create &amp; run</span>'
+      +     '<span class="chip ghost" style="border-style:dashed">Discard</span>'
+      +     '<span class="push" style="margin-left:auto;font-size:11.5px;color:var(--tx-muted)">'
+      +       'claude-opus-5 · 1.4s · 2,180 in / 190 out</span></div>'
+      + '</div></div>';
+  }
+
+  /* ── task run ────────────────────────────────────── */
+  function op(kind,risk,summary,note,state,extra){
+    return '<div class="op'+(state==='pending'?' pending':state==='denied'?' denied':'')+'">'
+      + '<div class="op-row"><span class="op-kind '+risk+'">'+kind+'</span>'
+      +   '<span class="op-sum">'+summary+'</span>'
+      +   (note?'<span class="op-note">'+note+'</span>':'')
+      +   '<span class="op-state">'+({
+            done:'<span class="ok">&#10003;</span> done',
+            running:'<span class="thinking"><i></i></span> running',
+            denied:'<span class="no">&#8856; refused</span>',
+            pending:'<span class="deny">Deny</span><span class="approve">Approve</span>'
+          }[state]||'')+'</span></div>'
+      + (extra||'') + '</div>';
+  }
+  function runPanel(){
+    var diff = '<div class="diff">'
+      + '<div class="hunk">@@ -142,7 +142,9 @@ export async function listTasks(</div>'
+      + '<div class="ctx">   const rows = stmt.all({ projectId, limit })</div>'
+      + '<div class="del">-  const next = rows.length ? encodeCursor(rows[0]) : null</div>'
+      + '<div class="add">+  const last = rows[rows.length - 1]</div>'
+      + '<div class="add">+  const next = rows.length === limit ? encodeCursor(last) : null</div>'
+      + '<div class="ctx">   return { data: rows, meta: { cursor: next } }</div>'
+      + '</div>';
+    var term = '<div class="term">$ npm test -- tasks/pagination<br>'
+      + '&nbsp; ✓ returns distinct rows across pages (24ms)<br>'
+      + '&nbsp; ✓ cursor advances past the final row (7ms)<br>'
+      + '<span class="exit">2 passing · exit 0</span></div>';
+    return '<div class="run">'
+      + '<div class="run-head"><span class="k">TM-12</span>'
+      +   '<h4>Cursor pagination resets on the second page</h4>'
+      +   '<span class="runstate awaiting"><i></i> Awaiting approval</span>'
+      +   '<span class="mdl" style="margin-left:auto">claude-opus-5'
+      +     '<span class="effdots"><i class="on"></i><i class="on"></i><i class="on"></i>'
+      +     '<i class="on"></i><i></i></span><span class="routed">reasoning xhigh</span></span>'
+      +   '<span class="wspath">~/Projects/task-manager</span></div>'
+      + '<div class="run-body">'
+      +   op('grep','safe','encodeCursor','3 matches in 2 files','done')
+      +   op('read','safe','src/api/tasks.ts','412 lines','done')
+      +   op('edit','write','src/api/tasks.ts','+2 −1','done',diff)
+      +   op('bash','exec','npm test -- tasks/pagination','','done',term)
+      +   op('bash','exec','git commit -am "fix: advance cursor past final row"','','done')
+      +   op('bash','exec','git push --force origin fix/cursor',
+              'on the never-allowed list','denied',
+              '<div class="adapted">&#8618; <b>Refused, and the model was told why.</b> '
+              + 'It continued and proposed a non-forced push instead.</div>')
+      +   op('bash','exec','git push origin fix/cursor','on the ask list','pending')
+      + '</div>'
+      + '<div class="run-foot"><span>7 operations · 5 done · 1 refused · 1 awaiting you</span>'
+      +   '<span class="push">claude-opus-5 · 1m 12s · 38.4k in / 3.1k out · $0.27</span></div>'
+      + '</div>';
+  }
+
+  /* ── activity dock (global, cross-project) ───────── */
+  var CHEV = '<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" '
+    + 'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">';
+  function dockHead(open){
+    return '<div class="dock-head"><span class="car">'+CHEV
+      + '<path d="'+(open?'M4 9.5L8 5.5L12 9.5':'M4 6.5L8 10.5L12 6.5')+'"/></svg></span>'
+      + '<b>Activity</b>'
+      + '<span class="tally"><i style="background:var(--ac)"></i>4 running</span>'
+      + '<span class="tally"><i style="background:var(--s-progress)"></i>1 needs you</span>'
+      + '<span class="tally"><i style="background:var(--p-urgent)"></i>1 held</span>'
+      + '<span class="tally"><i style="background:var(--bd-strong)"></i>2 queued</span>'
+      + '<span class="pauseall">Pause all</span></div>';
+  }
+  function arow(p,key,title,model,eff,mid,elapsed,opts){
+    opts = opts||{};
+    return '<div class="arow'+(opts.q?' q':'')+(opts.sub?' sub':'')+(opts.epic?' epicrun':'')
+      + (opts.held?' held':'')+'">'
+      + tile(p) + '<span class="k">'+(opts.sub?'<span class="guide"></span>':'')+key+'</span>'
+      + '<span class="t">'+(opts.epic?'<span class="epicmark">epic</span>':'')+title+'</span>'
+      + '<span class="mdl" style="justify-self:start">'+model
+      +   '<span class="routed">'+eff+'</span></span>'
+      + '<span>'+mid+'</span>'
+      + '<span class="el">'+(elapsed||'')+'</span>'
+      + '<span class="ctl">'
+      +   (opts.q?'':'<span class="ibtn" title="Pause">&#10073;&#10073;</span>')
+      +   '<span class="ibtn danger" title="Cancel">&#10005;</span></span></div>';
+  }
+  function bar(done,total){
+    return '<span class="prog"><span class="bar"><i style="width:'
+      + Math.round(done/total*100)+'%"></i></span>'
+      + '<span class="n">'+done+'/'+total+'</span></span>';
+  }
+  function dockRows(){
+    return '<div class="dock-rows">'
+      + arow(PROJECTS[0],'TM-12','Cursor pagination resets on the second page',
+             'claude-opus-5','xhigh', bar(4,6),'2m 14s')
+      + arow(PROJECTS[3],'RCX-8','Draft the Q3 security briefing',
+             'claude-fable-5','high',
+             '<span class="held">&#10073;&#10073; Fable cap &middot; resumes Sun</span>',
+             '3m 10s',{held:true})
+      + arow(PROJECTS[1],'HL-3','Rebuild the Proxmox migration notes',
+             'claude-opus-5','high',
+             '<span class="needs">&#9888; needs you</span>','4m 02s')
+      + arow(PROJECTS[0],'TM-20','Pagination overhaul',
+             'claude-opus-5','max', bar(3,7),'6m 51s',{epic:true})
+      + arow(PROJECTS[0],'TM-12','Cursor pagination on the task list endpoint',
+             'claude-opus-5','xhigh', bar(2,5),'1m 09s',{sub:true})
+      + arow(PROJECTS[0],'TM-21','Cursor encoding is not stable across restarts',
+             'claude-sonnet-5','high',
+             '<span class="prog indet"><span class="bar"></span>'
+             + '<span class="n">planning</span></span>','0m 22s',{sub:true})
+      + '<div class="dock-group">Queued <span style="color:var(--bd-strong)">2</span></div>'
+      + arow(PROJECTS[0],'TM-5','Board view with drag-and-drop status changes',
+             'claude-opus-5','xhigh','<span class="qpos">next up</span>','',{q:true})
+      + arow(PROJECTS[2],'PS-2','Rewrite the case-study copy',
+             'claude-haiku-4-5','low','<span class="qpos">#2</span>','',{q:true})
+      + '</div>';
+  }
+  function dock(open){ return '<div class="dock">'+dockHead(open)+(open?dockRows():'')+'</div>'; }
+
+  /* ── cancel confirmation ─────────────────────────── */
+  function cancelDialog(){
+    return '<div class="scrim" style="z-index:8"></div><div class="dlg">'
+      + '<div class="dlg-body">'
+      +   '<h4>Cancel this run?</h4>'
+      +   '<p><b style="color:var(--tx-primary)">TM-12</b> — Cursor pagination resets on the '
+      +     'second page. It has completed 4 of 6 planned operations.</p>'
+      +   '<div class="applied"><span class="h">Already applied — cancelling does not undo these</span>'
+      +     '<div class="f">src/api/tasks.ts<em>+2 &minus;1</em></div>'
+      +     '<div class="f">src/api/cursor.ts<em>+14 &minus;3</em></div>'
+      +     '<div class="f">test/pagination.test.ts<em>+31</em></div></div>'
+      +   '<p style="color:var(--tx-muted);font-size:12.5px">Cancelling stops further work. '
+      +     'To undo the changes above, revert them in your workspace.</p>'
+      + '</div>'
+      + '<div class="dlg-foot"><span class="btn-danger">Cancel run</span>'
+      +   '<span class="btn-quiet">Keep running</span></div></div>';
+  }
+
+  /* ── project settings ────────────────────────────── */
+  function snav(){
+    var items=['General','Git','Concurrency','Safety','Fields &amp; statuses',
+               'Models &amp; routing','Usage limits','Schedules'];
+    return '<div class="rail">'
+      + '<div class="facet-head" style="cursor:default"><span class="caret">&#9662;</span>Settings'
+      +   '<span class="src">task-manager</span></div>'
+      + '<div class="snav">'
+      +   items.map(function(i,n){ return '<a href="#"'+(n<3?'':'')+
+          (i==='Safety'?' class="on"':'')+'>'+i+'</a>'; }).join('')
+      +   '<a href="#" class="danger">Danger zone</a>'
+      + '</div></div>';
+  }
+  function sw(on){ return '<span class="toggle'+(on?' on':'')+'"></span>'; }
+  function settingsPanel(){
+    var dd = '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" '
+      + 'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+      + '<path d="M4 6.5L8 10.5L12 6.5"/></svg>';
+    var pats = ['git push','git commit','rm *','npm publish','curl *','*.env','docker *']
+      .map(function(p){ return '<span class="apat">'+p+' <s>&#10005;</s></span>'; }).join('');
+    return '<div class="settings" style="max-width:680px;gap:22px">'
+
+      + '<div class="sgroup"><h3>General</h3>'
+      +   '<div class="srow"><label>Project type</label>'
+      +     '<span class="sel">Node.js'+dd+'</span></div>'
+      +   '<div class="srow"><label>Workspace path'
+      +     '<span class="sub">Runs and docs are confined to this root</span></label>'
+      +     '<span class="pathfield">~/Projects/task-manager<span class="ok">&#10003; found</span></span></div>'
+      +   '<div class="srow"><label>Docs folder</label>'
+      +     '<span class="pathfield">docs/<span class="ok">&#10003; 12 files</span></span></div>'
+      + '</div>'
+
+      + '<div class="sgroup"><h3>Git</h3>'
+      +   '<div class="switchrow">'+sw(true)+'<span class="txt"><b>Auto-commit after a successful run</b>'
+      +     '<span>Stages and commits the run&rsquo;s changes locally. Reversible — nothing leaves your machine.</span></span></div>'
+      +   '<div class="srow"><label>Message template</label>'
+      +     '<span class="pathfield">task({key}): {title}</span></div>'
+      +   '<div class="switchrow warnrow">'+sw(false)+'<span class="txt"><b>Auto-push after commit</b>'
+      +     '<span>Publishes model-authored commits to the remote, where teammates and CI will see them. '
+      +     'Hard to undo. Requires auto-commit.</span></span></div>'
+      + '</div>'
+
+      + '<div class="sgroup"><h3>Concurrency</h3>'
+      +   '<p class="hint">Every agent writes to the same filesystem. Two runs in this '
+      +     'workspace at once will interleave edits and clobber each other &mdash; and '
+      +     'neither will notice.</p>'
+      +   '<div class="srow"><label>Runs at a time'
+      +     '<span class="sub">Queued otherwise</span></label>'
+      +     '<span class="sel" style="min-width:96px">1'+dd+'</span></div>'
+      +   '<div class="srow"><label>Epic subtask agents'
+      +     '<span class="sub">Raise only if subtasks touch disjoint files &mdash; '
+      +     'the tool can&rsquo;t verify that</span></label>'
+      +     '<span class="sel" style="min-width:96px">1'+dd+'</span></div>'
+      +   '<p class="hint">Other projects are unaffected: they write to different '
+      +     'workspace roots, so they run alongside this one.</p>'
+      + '</div>'
+
+      + '<div class="sgroup"><h3>Safety</h3>'
+      +   '<p class="hint">Applies to every run in this project. Any task can override the mode.</p>'
+      +   '<div class="denyblock">'
+      +     '<div class="denyhead"><span class="nosign">&#8856;</span><b>Never allowed</b>'
+      +       '<span>Applies in every mode, including Allow everything. '
+      +       'Not overridable per task. There is no approve-anyway.</span></div>'
+      +     '<div class="denylist">'
+      +       '<span class="dpat">rm -rf / <s>&#10005;</s></span>'
+      +       '<span class="dpat">git push --force <s>&#10005;</s></span>'
+      +       '<span class="dpat add">+ Add pattern</span></div>'
+      +   '</div>'
+      +   '<div class="modes">'
+      +     '<div class="mode"><span class="radio"></span><span class="txt"><b>Allow everything</b>'
+      +       '<span>No prompts. Every operation runs as soon as the model asks for it.</span></span></div>'
+      +     '<div class="mode"><span class="radio"></span><span class="txt"><b>Ask everything</b>'
+      +       '<span>Every operation stops for approval, reads included.</span></span></div>'
+      +     '<div class="mode on"><span class="radio"></span><span class="txt"><b>Ask for listed actions</b>'
+      +       '<span>Everything runs except operations matching the list below, which stop and wait. '
+      +       'The list asks — it never refuses.</span></span></div>'
+      +   '</div>'
+      +   '<div class="asklist">'+pats+'<span class="apat add">+ Add pattern</span></div>'
+      +   '<p class="hint" style="margin-left:25px">Workspace confinement is not a setting. '
+      +     'Every path is checked against the root above regardless of mode.</p>'
+      + '</div></div>';
+  }
+
+  /* ── frame assembly ──────────────────────────────── */
+  function frame(url,inner,cls,dk){
+    return '<div class="frame"><div class="chrome">'
+      + '<div class="lights"><i></i><i></i><i></i></div>'
+      + '<div class="url">localhost:4400<b>'+url+'</b></div></div>'
+      + '<div class="scroller"><div class="app'+(cls?' '+cls:'')+'">'+inner+'</div></div>'
+      + (dk||'') + '</div>';
+  }
+  function withRail(url,main,extra){
+    return frame(url, side()+'<div class="main">'+stats()+main+'</div>'+(extra||''),
+      false, dock(false));
+  }
+  function focused(url,label,main){
+    return frame(url, sideFocused(label)+'<div class="main">'+main+'</div>',
+      false, dock(false));
+  }
+  function docsScreen(){
+    return frame('/p/task-manager/docs/architecture.md',
+      sideDocs()+'<div class="main">'+docPage()+'</div>', false, dock(false));
+  }
+  function activityScreen(){
+    return frame('/p/task-manager?status=todo,in_progress',
+      side()+'<div class="main">'+stats()+toolbar('Table')+taskTable({short:true})+'</div>'
+      + cancelDialog(), 'fixed', dock(true));
+  }
+  function settingsScreen(){
+    return frame('/p/task-manager/settings',
+      '<aside class="side">'+wsButton()+docsBtn(false)+snav()+'</aside>'
+      + '<div class="main">'+settingsPanel()+'</div>', false, dock(false));
+  }
+
+  var SCREENS = {
+    table:    withRail('/p/task-manager?status=todo,in_progress',
+                toolbar('Table')+taskTable({epicOpen:true})),
+    select:   withRail('/p/task-manager?status=todo,in_progress',
+                toolbar('Table')+taskTable({checked:['TM-14','TM-5','TM-7']})
+                + bulkBar()),
+    epic:     withRail('/p/task-manager/t/TM-20', toolbar('Table')+epicPage()),
+    compose:  focused('/p/task-manager/new', 'All tasks', compose()),
+    run:      focused('/p/task-manager/t/TM-12/run', 'Back to TM-12', runPanel()),
+    docs:     docsScreen(),
+    activity: activityScreen(),
+    switcher: withRail('/p/task-manager', toolbar('Table')+taskTable(), '<div class="scrim" style="z-index:5"></div>'+wsMenu()),
+    detail:   withRail('/p/task-manager/t/TM-3',
+                taskView('overview','Executing','',tvOverview())),
+    questions:withRail('/p/task-manager/t/TM-3/questions',
+                taskView('questions','Open questions','q',tvQuestions(),
+                  {run:false,sideStatus:'Open questions'})),
+    design:   withRail('/p/task-manager/t/TM-3/design',
+                taskView('design','Design','des',tvDesign(),
+                  {run:false,sideStatus:'Design'})),
+    tests:    withRail('/p/task-manager/t/TM-3/tests',
+                taskView('tests','Testing','test',tvTests(),{sideStatus:'Testing'})),
+    review:   withRail('/p/task-manager/t/TM-3/review',
+                taskView('review','Manual review','rev',tvReview(),
+                  {sideStatus:'Manual review'})),
+    board:    withRail('/p/task-manager?view=board', toolbar('Board')+board()),
+    home:     frame('/', home(), 'nosidebar', dock(false)),
+    fields:   withRail('/p/task-manager/settings/fields',
+                '<div class="toolbar"><div class="seg"><span class="on">Fields</span><span>Statuses</span>'
+                + '<span>General</span><span>Danger</span></div></div>' + settings()),
+    settings: settingsScreen()
+  };
+
+  document.querySelectorAll('[data-screen]').forEach(function(s){
+    s.querySelector('.mount').innerHTML = SCREENS[s.getAttribute('data-screen')] || '';
+  });
+
+  var btns = document.querySelectorAll('[data-btn]');
+  var screens = document.querySelectorAll('[data-screen]');
+  btns.forEach(function(b){
+    b.addEventListener('click', function(){
+      btns.forEach(function(x){ x.setAttribute('aria-selected', String(x===b)); });
+      screens.forEach(function(s){
+        s.classList.toggle('is-on', s.getAttribute('data-screen')===b.getAttribute('data-btn'));
+      });
+    });
+  });
+})();
+</script>
