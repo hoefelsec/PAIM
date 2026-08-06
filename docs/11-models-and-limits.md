@@ -1,6 +1,24 @@
 # 11 — Models and limits
 
+## Two model decisions
+
+A project makes two separate decisions about models.
+
+| Decision | Scope | Where the user sets it |
+|---|---|---|
+| The **compose model** writes and reads task text. | One value for the whole project. | Project settings. See [08 — AI compose](08-ai-compose.md). |
+| The **run model** executes a task in the workspace. | One value for each task, from a routing field. | Project settings, then per task. See below. |
+
+The two decisions are separate because the work is different. A compose
+operation is one request that returns structured text. A run is an agent loop
+with file and shell tools. A project can compose with a low-cost model and still
+run on `claude-opus-5`.
+
+Both models must be in `allowedModels`.
+
 ## Model routing
+
+This section is about the run model.
 
 Each task runs on a **model** at an **effort** level. Both values are on the
 task. Both are normally `null`, which means "the service selects the value".
@@ -49,7 +67,8 @@ A project with no routing field sends every task to `fallback`.
 | `claude-sonnet-5` | High speed with near-Opus quality. |
 | `claude-haiku-4-5` | Fast and low cost. Simple tasks. |
 
-`allowedModels` in project settings limits which models a project may use.
+`allowedModels` in project settings limits which models a project may use. It
+applies to the compose model and to the run model.
 
 ### Effort
 
@@ -66,9 +85,19 @@ meaning without the model that spends it.
 
 ## Usage metering
 
-The service meters its own runs. Each run records `inputTokens`,
-`outputTokens`, and `costUsd`. See [09 — AI run](09-ai-run.md). The meters and
-the caps read these records and nothing else.
+The service meters everything that it sends to Claude. Two kinds of record hold
+the numbers, and each one records `inputTokens`, `outputTokens`, and `costUsd`.
+
+| Record | Source |
+|---|---|
+| Run | One task execution. See [09 — AI run](09-ai-run.md). |
+| Compose operation | One compose, merge-epic, or suggest-order request. See [08 — AI compose](08-ai-compose.md). |
+
+The meters and the caps read these two kinds of record and nothing else.
+
+A compose operation is small next to a run. It is not zero. A project that
+composes 40 tasks with `claude-opus-5` spends real tokens. A meter that hides
+those tokens reports a number that is too low.
 
 The account of the user also has usage windows on the side of Anthropic. The
 service has no confirmed source for that data. This is an open question. The
@@ -110,6 +139,18 @@ enforces it.
   routes to `claude-fable-5` cannot start. Tasks that route to other models
   continue.
 - To bypass a cap, add `?ignoreCaps=true` to the run request.
+
+### A cap stops a run. It does not stop a compose operation.
+
+A compose operation counts against the meters, but a cap never blocks it.
+
+The reason is the cost of the block. A compose operation is the way the user
+writes work down. A blocked compose step stops the user from recording anything,
+and the tokens that it saves are a small part of the window. A run is the large
+consumer, so the cap acts there.
+
+Therefore a meter can pass its cap through compose operations alone. The band
+shows the state, and the next run does not start.
 
 ### No warning banner
 

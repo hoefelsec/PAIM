@@ -27,7 +27,8 @@ The service must do all of this before release 1.
 - Suggested order.
 - Runs with the Agent SDK, the approval control, differences, and run history.
 - Restore points.
-- Model routing from a nominated field.
+- The compose model: a project setting for the model that writes tasks.
+- Run model routing from a nominated field.
 - Epic runs: the orchestrator scheduler and child runs.
 
 **Pipeline gates**

@@ -181,7 +181,7 @@ GET /api/projects/:project/docs/*path     one rendered file, or one asset
 |---|---|
 | 200 | Success |
 | 201 | The service created a record |
-| 400 | The request is not valid |
+| 400 | The request is not valid. Examples: `FIELD_UNKNOWN`, `MODEL_NOT_ALLOWED` |
 | 403 | `ORIGIN_REJECTED`. The request breaks a header rule. See "Access" above. |
 | 404 | The service did not find the record |
 | 409 | A conflict. Examples: `BUDGET_CAP_REACHED`, `DEPENDENCY_NOT_MET`, `IF_MATCH_FAILED` |

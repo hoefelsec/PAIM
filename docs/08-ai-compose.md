@@ -42,8 +42,9 @@ project.
 ```ts
 const Draft = zodFromFieldSchema(project);   // same source as write validation
 const res = await claude.messages.parse({
-  model: "claude-opus-5",
+  model: project.composeModel.model,         // a project setting; see "Model"
   max_tokens: 4096,
+  thinking: { type: "adaptive" },            // effort: project.composeModel.effort
   system: composerPrompt(project),           // stable, so the API caches it
   messages: [{ role: "user", content: text }],
   output_config: { format: zodOutputFormat(Draft) },
@@ -148,7 +149,48 @@ Rules:
 
 ## Model
 
-All three operations use `claude-opus-5`.
+A project setting selects the model for these three operations.
+
+```jsonc
+"composeModel": { "model": "claude-opus-5", "effort": "medium" }
+```
+
+The default is `claude-opus-5` at `medium` effort.
+
+### One value covers all three operations
+
+The three operations do the same kind of work. Each one sends text, and each one
+receives structured text. None of them uses a tool, and none of them changes a
+file. Therefore they need the same capability, and one value is correct for all
+three.
+
+The run model is a separate decision. A run routes per task from a nominated
+field. See [11 — Models and limits](11-models-and-limits.md).
+
+### Rules
+
+- The model must be in `allowedModels`. The API returns `400 MODEL_NOT_ALLOWED`
+  for a value outside that list.
+- The interface shows the model joined to the effort, for example
+  `claude-opus-5 · medium`. See [11 — Models and limits](11-models-and-limits.md).
+- A change applies to the next operation. It does not change a task that exists.
+  To apply a new model to an old task, re-evaluate the task. See
+  [05 — Dependencies](05-dependencies.md).
+- **There is no per-task override.** A compose operation creates a record. It
+  does not act for a record that exists.
+- The service meters these operations against the usage windows. A cap does not
+  stop them. See [11 — Models and limits](11-models-and-limits.md).
+
+### Which model to select
+
+| Model | Result for compose |
+|---|---|
+| `claude-opus-5` | The default. It infers dependencies and drafts tests well. |
+| `claude-sonnet-5` | Lower cost. It is sufficient for a short and clear prompt. |
+| `claude-haiku-4-5` | The lowest cost. It infers fewer values and asks more questions. |
+
+A weaker model does not give a wrong task. It gives a smaller draft, and it
+leaves more values empty. The response reports which value is empty and why.
 
 ## Related documents
 

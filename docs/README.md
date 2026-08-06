@@ -60,7 +60,10 @@ Use these terms. Do not use other terms for the same thing.
 | **status** | The stage of a task in the pipeline. See [04](04-status-pipeline.md). |
 | **gate** | A condition that a task must satisfy to leave a status. |
 | **pipeline** | The list of statuses that a project uses. |
+| **compose** | One request that turns free text into a structured draft. It uses no tools. |
+| **compose model** | The model that performs a compose operation. One value for the project. |
 | **run** | One execution of a task by Claude. |
+| **run model** | The model that performs a run. One value for each task, from a routing field. |
 | **operation** | One action in a run. Examples: read a file, write a file, run a command. |
 | **orchestrator** | The scheduler that runs an epic. It starts one agent for each child task, in dependency order. It is not a model. |
 | **restore point** | The state of the workspace path before a run starts. |

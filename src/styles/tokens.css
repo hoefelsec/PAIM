@@ -1,0 +1,184 @@
+/* PAIM design tokens.
+ *
+ * This file is the only place that holds a literal colour, size, or duration.
+ * It transcribes docs/13-design-language.md. If the two disagree, the document
+ * is correct and this file has an error.
+ *
+ * The @theme block generates Tailwind utilities. The :root block holds the
+ * tokens that have no Tailwind namespace: fixed geometry and motion.
+ */
+
+@import "tailwindcss";
+
+@theme {
+  /* ── ground ─────────────────────────────────────────────────────────── */
+  --color-base: #131211; /* the page */
+  --color-surface: #1a1918; /* cards, panels, the sidebar */
+  --color-raised: #222120; /* inputs, hover states */
+  --color-overlay: #292826; /* menus, dialogs */
+
+  --color-bd-subtle: #2a2927; /* hairlines */
+  --color-bd-strong: #3a3835; /* focus, emphasis */
+
+  --color-tx-primary: #eae7e1;
+  --color-tx-secondary: #9c978f;
+  --color-tx-muted: #7a756e; /* 4.0:1 on base — the floor for any text */
+
+  /* ── accent ─────────────────────────────────────────────────────────── */
+  --color-accent: #6fa8ce;
+  --color-accent-hover: #8cbede;
+  --color-accent-solid: #3d7fa8;
+  --color-accent-on: #f4fafd; /* text on accent-solid */
+  --color-accent-tint: color-mix(in srgb, #6fa8ce 13%, transparent);
+
+  /* ── status ─────────────────────────────────────────────────────────────
+   * All between 45% and 60% saturation. No status colour is stronger than a
+   * project colour. */
+  --color-st-backlog: #6b6660;
+  --color-st-questions: #a78bc5;
+  --color-st-design: #5fa39b;
+  --color-st-ready: #9aa3ae;
+  --color-st-executing: #c99a54;
+  --color-st-testing: #c99a54;
+  --color-st-review: #6fa8ce;
+  --color-st-done: #6fa57c;
+  --color-st-cancelled: #55514c;
+
+  /* ── priority ───────────────────────────────────────────────────────────
+   * Brass is both `executing` and `high`. Both mean "this needs attention
+   * now". The shapes differ, so a column never needs a second reading. */
+  --color-pr-urgent: #cb6f63;
+  --color-pr-high: #c99a54;
+  --color-pr-medium: #7e9fbe;
+  --color-pr-low: #5f5a54; /* 2.7:1 on base. Quietest, but a 2px bar is
+                            * still visible: at border/strong it was 1.6:1
+                            * and `low` drew the same picture as `none`. */
+
+  /* ── operation risk ─────────────────────────────────────────────────────
+   * The one place where the accent carries meaning, not interaction. The
+   * question a run screen answers is "what can this change on my machine?". */
+  --color-op-safe: #7a756e; /* read, glob, grep */
+  --color-op-write: #6fa8ce; /* write, edit */
+  --color-op-exec: #cb6f63; /* bash */
+
+  /* ── project identity ───────────────────────────────────────────────────
+   * Eight tones. Each is between 5.3:1 and 7.9:1 on base. A new tone must
+   * stay in that band. */
+  --color-id-steel: #6fa8ce;
+  --color-id-sage: #6fa57c;
+  --color-id-brass: #c99a54;
+  --color-id-clay: #cb6f63;
+  --color-id-violet: #a78bc5;
+  --color-id-teal: #69b5ad;
+  --color-id-rose: #c37994;
+  --color-id-grey: #938d85;
+
+  /* ── type ───────────────────────────────────────────────────────────────
+   * The system font stack, not Inter. Monospace marks an identifier: if the
+   * text is monospace, it goes in a URL or a JSON key. */
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui,
+    sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+
+  --text-page: 1.75rem; /* 28px — page titles */
+  --text-page--line-height: 1.15;
+  --text-page--letter-spacing: -0.02em;
+  --text-page--font-weight: 600;
+
+  --text-task: 1.1875rem; /* 19px — task titles */
+  --text-task--line-height: 1.3;
+  --text-task--letter-spacing: -0.015em;
+  --text-task--font-weight: 600;
+
+  --text-ws: 0.84375rem; /* 13.5px — the workspace name */
+  --text-ws--line-height: 1.2;
+  --text-ws--font-weight: 600;
+
+  --text-row: 0.8125rem; /* 13px — table rows */
+  --text-row--line-height: 1.25;
+  --text-row--font-weight: 450;
+
+  --text-prop: 0.78125rem; /* 12.5px — facet items, properties */
+  --text-prop--line-height: 1.35;
+
+  --text-id: 0.6875rem; /* mono 11 — identifiers */
+  --text-id--line-height: 1.2;
+
+  --text-label: 0.625rem; /* mono 10 — section labels */
+  --text-label--line-height: 1.2;
+  --text-label--letter-spacing: 0.11em;
+
+  /* ── geometry ───────────────────────────────────────────────────────────
+   * A 4 pixel spacing grid. No radius is larger than 14px: a large radius at
+   * this density looks incorrect. */
+  --spacing: 4px;
+
+  --radius-ctl: 6px; /* controls */
+  --radius-card: 10px; /* cards */
+  --radius-panel: 14px; /* panels */
+
+  /* ── shadow ─────────────────────────────────────────────────────────────
+   * Only three elements have one: the workspace menu, a dialog, and a card
+   * that the user drags. */
+  --shadow-menu: 0 12px 28px -8px rgb(0 0 0 / 0.55);
+  --shadow-dialog: 0 24px 56px -12px rgb(0 0 0 / 0.7);
+  --shadow-drag: 0 8px 20px -6px rgb(0 0 0 / 0.5);
+}
+
+:root {
+  /* Fixed structure. These are not scales, so they are not Tailwind
+   * utilities. A component reads them by name. */
+  --row-h: 33px; /* table row. There is one density. */
+  --rail-w: 240px; /* the left rail */
+  --side-w: 244px; /* the task view side column */
+  --band-h: 44px; /* the stats band */
+  --dock-h: 30px; /* the dock, collapsed */
+
+  /* Motion. 120 to 200 milliseconds, ease-out. */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur-fast: 120ms; /* tab change, facet collapse */
+  --dur-mid: 160ms; /* panel, menu */
+  --dur-slow: 200ms; /* the longest transition in the interface */
+  --dur-hover-in: 0ms; /* a table must not feel slow under the pointer */
+  --dur-hover-out: 140ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-mid: 0ms;
+    --dur-slow: 0ms;
+    --dur-hover-out: 0ms;
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--color-base);
+    color: var(--color-tx-primary);
+    font-family: var(--font-ui);
+    font-size: var(--text-row);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Numbers that align in a column. */
+  table,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Structure comes from 1 pixel lines and from steps in the background. */
+  hr {
+    border: 0;
+    border-top: 1px solid var(--color-bd-subtle);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
+}

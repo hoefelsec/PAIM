@@ -11,7 +11,7 @@ Route: `/p/:project/settings`. The left rail holds the list of sections.
 | Concurrency | Runs at one time, epic worker agents |
 | Safety | The deny list, the mode, the ask list |
 | Custom fields | The field editor |
-| Models and routing | Permitted models, the routing map |
+| Models and routing | Permitted models, the compose model, the routing map |
 | Usage limits | The three caps |
 | Schedules | All scheduled tasks in this project |
 | Danger zone | The trash, archive, delete, reset the schema |
@@ -128,8 +128,36 @@ them.
 
 ## Models and routing
 
-`allowedModels` limits the models. `modelRouting` maps a field to a model and an
-effort. See [11 — Models and limits](11-models-and-limits.md).
+The section holds three controls, in this order.
+
+### 1. Permitted models
+
+`allowedModels` limits which models this project may use. It applies to the two
+controls below. A model outside the list does not appear in either selector.
+
+### 2. The compose model
+
+The model that writes tasks. It performs compose, merge into epic, and suggested
+order. See [08 — AI compose](08-ai-compose.md).
+
+```
+composeModel   { model: "claude-opus-5", effort: "medium" }
+```
+
+- One selector, showing the model joined to the effort.
+- There is no per-task override, because a compose operation creates a record
+  and does not act for one that exists.
+- The settings text states the result of a weaker model: a smaller draft with
+  more empty values, not a wrong task.
+
+### 3. The routing map
+
+`modelRouting` maps a nominated field to the **run** model and effort. See
+[11 — Models and limits](11-models-and-limits.md).
+
+The two selectors are separate, and the interface keeps them apart. Compose is
+one request that returns text. A run is an agent loop that writes files. A
+project can compose with `claude-haiku-4-5` and still run on `claude-opus-5`.
 
 ## Usage limits
 

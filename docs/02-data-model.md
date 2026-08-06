@@ -22,8 +22,9 @@ fieldSchema    FieldDef[]          custom fields (see 03)
 testFramework  jest | vitest | pytest | go | cargo | custom   (see 12)
 regressionTests TestDef[]          tests that every task must pass (see 04)
 safety         SafetyPolicy        permissions for runs (see 10)
-modelRouting   RoutingConfig       model and effort per task (see 11)
-allowedModels  string[]            models this project may use
+composeModel   { model, effort }   the model that writes tasks (see 08)
+modelRouting   RoutingConfig       the run model and effort per task (see 11)
+allowedModels  string[]            models this project may use, for both of the above
 usageCaps      { fiveHour, weekly, fable }   token budgets (see 11)
 maxConcurrentRuns  integer, default 1   agents that write to this workspace (see 10)
 trashRetentionDays integer, default 30  (see 06)

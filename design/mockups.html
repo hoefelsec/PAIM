@@ -335,6 +335,18 @@ section + section{border-top:1px solid var(--bd-subtle)}
   border:1px solid var(--bd-subtle);border-radius:var(--r-ctl);padding:6px 10px;
   font-family:var(--font-mono);font-size:11.5px;color:var(--tx-primary)}
 .pathfield .ok{margin-left:auto;font-family:var(--font-ui);font-size:11.5px;color:var(--s-done)}
+/* models & routing: permitted set, then the two model selectors */
+.mdlset{display:flex;flex-wrap:wrap;gap:5px}
+.mdlon{font-family:var(--font-mono);font-size:10.5px;padding:3px 8px;
+  border-radius:var(--r-ctl);background:var(--ac-tint);
+  border:1px solid rgba(111,168,206,.34);color:var(--ac-hover)}
+.routemap{display:flex;flex-direction:column;gap:4px;margin-left:186px}
+.rrow{display:flex;align-items:center;gap:11px}
+.rval{font-family:var(--font-mono);font-size:10.5px;text-transform:uppercase;
+  min-width:40px;text-align:center;padding:2px 7px;border-radius:4px;
+  background:var(--bg-raised);border:1px solid var(--bd-subtle);color:var(--tx-secondary)}
+.rarrow{color:var(--tx-muted);font-size:11px}
+.rnote{font-size:11.5px;color:var(--tx-muted)}
 .switchrow{display:flex;align-items:flex-start;gap:11px}
 .switchrow .txt{display:flex;flex-direction:column;gap:2px}
 .switchrow .txt b{font-size:12.5px;color:var(--tx-primary);font-weight:500}
@@ -2230,7 +2242,52 @@ footer{padding:40px 0 70px;border-top:1px solid var(--bd-subtle);
       +   '<div class="asklist">'+pats+'<span class="apat add">+ Add pattern</span></div>'
       +   '<p class="hint" style="margin-left:25px">Workspace confinement is not a setting. '
       +     'Every path is checked against the root above regardless of mode.</p>'
+      + '</div>'
+
+      + '<div class="sgroup"><h3>Models &amp; routing</h3>'
+      +   '<p class="hint">Two separate decisions. <b>Composing</b> a task is one '
+      +     'request that returns structured text. <b>Running</b> it is an agent loop '
+      +     'that writes files. They don&rsquo;t need the same model.</p>'
+      +   '<div class="srow"><label>Permitted models'
+      +     '<span class="sub">Limits both selectors below</span></label>'
+      +     '<span class="mdlset">'
+      +       '<span class="mdlon">claude-opus-5</span>'
+      +       '<span class="mdlon">claude-sonnet-5</span>'
+      +       '<span class="mdlon">claude-haiku-4-5</span>'
+      +       '<span class="mdlon">claude-fable-5</span></span></div>'
+      +   '<p class="hint">Removing a model takes it out of both selectors. Drop '
+      +     '<code>claude-fable-5</code> and the Fable meter disappears from the band '
+      +     'too &mdash; a meter for a limit you can&rsquo;t reach is noise.</p>'
+      +   '<div class="srow"><label>Compose model'
+      +     '<span class="sub">Writes task descriptions, merges epics, suggests order</span></label>'
+      +     '<span class="sel" style="min-width:210px">claude-opus-5 &middot; medium'+dd+'</span></div>'
+      +   '<p class="hint">A weaker model here doesn&rsquo;t give you a wrong task &mdash; '
+      +     'it gives a smaller draft with more fields left empty, and it asks more '
+      +     'questions. There is no per-task override: composing <em>creates</em> the '
+      +     'task, so there is nothing yet to override.</p>'
+      +   '<div class="srow"><label>Run routing field'
+      +     '<span class="sub">Maps a field&rsquo;s values to a run model</span></label>'
+      +     '<span class="sel" style="min-width:96px">size'+dd+'</span></div>'
+      +   '<div class="routemap">'
+      +     routerow('XS','claude-haiku-4-5','low')
+      +     routerow('S','claude-sonnet-5','medium')
+      +     routerow('M','claude-opus-5','high')
+      +     routerow('L','claude-opus-5','xhigh')
+      +     routerow('XL','claude-opus-5','xhigh')
+      +     routerow('Epic','&mdash;','scheduler, not a model',true)
+      +   '</div>'
+      +   '<p class="hint">Both models are metered against the usage windows. A cap '
+      +     'stops a <em>run</em>; it never blocks composing, because that is how you '
+      +     'write work down in the first place.</p>'
       + '</div></div>';
+  }
+  function routerow(val,model,effort,dim){
+    return '<div class="rrow"'+(dim?' style="opacity:.55"':'')+'>'
+      + '<span class="rval">'+val+'</span>'
+      + '<span class="rarrow">&rarr;</span>'
+      + '<span class="mdl">'+model+(dim?'':'<span class="routed">'+effort+'</span>')+'</span>'
+      + (dim?'<span class="rnote">'+effort+'</span>':'')
+      + '</div>';
   }
 
   /* ── field editor (a settings section of its own) ──
