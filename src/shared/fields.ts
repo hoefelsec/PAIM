@@ -19,6 +19,23 @@ export const FIELD_TYPES = [
   "url",
 ] as const;
 
+/**
+ * docs/03: the `type` field's options come from a predefined pool.
+ * Each option has a key prefix used in task.key (see docs/02 "Task keys").
+ */
+export const TYPE_POOL = {
+  feature: "FEAT",
+  bug: "BUG",
+  chore: "CHORE",
+  spike: "SPIKE",
+  debt: "DEBT",
+} as const;
+
+export const TYPE_POOL_FALLBACK = "TASK" as const;
+
+/** The set of valid type options for a `type` field. */
+export const TYPE_OPTIONS = Object.keys(TYPE_POOL) as readonly string[];
+
 export type FieldType = (typeof FIELD_TYPES)[number];
 
 /** The two types whose values come from `options` — the only ones that are facets. */

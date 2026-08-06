@@ -13,6 +13,7 @@
 import { ApiError } from "../errors.js";
 import {
   FIELD_TYPES,
+  TYPE_OPTIONS,
   fieldView,
   isFieldKey,
   isFieldType,
@@ -90,6 +91,24 @@ function asOptions(value: unknown, field: string): string[] {
 }
 
 /**
+ * Validates options for a `type` field. The options must be a subset of the
+ * predefined pool (docs/03).
+ */
+function validateTypeOptions(options: string[]): void {
+  const poolSet = new Set(TYPE_OPTIONS);
+  const unknownOptions = options.filter((opt) => !poolSet.has(opt));
+  if (unknownOptions.length > 0) {
+    throw new ApiError(
+      "TYPE_OPTION_UNKNOWN",
+      422,
+      { options: unknownOptions, allowed: [...TYPE_OPTIONS] },
+      `Invalid type options: ${unknownOptions.join(", ")}. ` +
+        `Valid options are: ${[...TYPE_OPTIONS].join(", ")}`,
+    );
+  }
+}
+
+/**
  * Validates one field definition. The result keeps exactly the properties the
  * caller supplied — completion into a {@link FieldDefView} happens on read, so
  * a definition written through the project endpoint round-trips unchanged.
@@ -126,6 +145,10 @@ export function parseFieldDef(value: unknown, field: string): FieldDef {
       });
     }
     def.options = asOptions(raw["options"], `${field}.options`);
+    // The `type` field has a special constraint: options must come from the pool
+    if (def.key === "type") {
+      validateTypeOptions(def.options);
+    }
   }
   if (raw["required"] !== undefined) def.required = asBoolean(raw["required"], `${field}.required`);
   if (raw["default"] !== undefined) def.default = raw["default"];

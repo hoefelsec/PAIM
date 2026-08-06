@@ -9,7 +9,7 @@ import {
   parseFieldSchema,
   schemaView,
 } from "../../../src/server/fields/schema.js";
-import { FIELD_TYPES, type FieldDef } from "../../../src/shared/fields.js";
+import { FIELD_TYPES, TYPE_OPTIONS, TYPE_POOL, type FieldDef } from "../../../src/shared/fields.js";
 
 /** The error an engine call threw, or a failure if it threw nothing. */
 function thrownBy(run: () => unknown): ApiError {
@@ -247,5 +247,124 @@ describe("facets", () => {
     ];
 
     expect(facetFields(schema).map((f) => f.key)).toEqual(["layer", "tags"]);
+  });
+});
+
+describe("T09 — The type pool", () => {
+  it("exports the type pool constant", () => {
+    expect(TYPE_POOL).toEqual({
+      feature: "FEAT",
+      bug: "BUG",
+      chore: "CHORE",
+      spike: "SPIKE",
+      debt: "DEBT",
+    });
+  });
+
+  it("exports TYPE_OPTIONS as all pool keys", () => {
+    expect(TYPE_OPTIONS).toEqual(["feature", "bug", "chore", "spike", "debt"]);
+  });
+
+  it("accepts valid type field options from the pool", () => {
+    const typeDef = parseFieldDef(
+      {
+        key: "type",
+        type: "select",
+        options: ["feature", "bug"],
+      },
+      "f",
+    );
+
+    expect(typeDef.options).toEqual(["feature", "bug"]);
+  });
+
+  it("accepts all pool options in a type field", () => {
+    const typeDef = parseFieldDef(
+      {
+        key: "type",
+        type: "multi_select",
+        options: ["feature", "bug", "chore", "spike", "debt"],
+      },
+      "f",
+    );
+
+    expect(typeDef.options).toEqual(["feature", "bug", "chore", "spike", "debt"]);
+  });
+
+  it("rejects type field options outside the pool with 422 TYPE_OPTION_UNKNOWN", () => {
+    const err = thrownBy(() =>
+      parseFieldDef(
+        {
+          key: "type",
+          type: "select",
+          options: ["feature", "unknown"],
+        },
+        "f",
+      ),
+    );
+
+    expect(err.code).toBe("TYPE_OPTION_UNKNOWN");
+    expect(err.status).toBe(422);
+    expect(err.details).toMatchObject({
+      options: ["unknown"],
+      allowed: ["feature", "bug", "chore", "spike", "debt"],
+    });
+  });
+
+  it("rejects a type field with only invalid options", () => {
+    const err = thrownBy(() =>
+      parseFieldDef(
+        {
+          key: "type",
+        type: "select",
+          options: ["custom", "proprietary"],
+        },
+        "f",
+      ),
+    );
+
+    expect(err.code).toBe("TYPE_OPTION_UNKNOWN");
+    expect(err.details).toMatchObject({
+      options: ["custom", "proprietary"],
+    });
+  });
+
+  it("allows options on non-type select fields outside the pool", () => {
+    // Non-type fields can have arbitrary options
+    const layerDef = parseFieldDef(
+      {
+        key: "layer",
+        type: "select",
+        options: ["frontend", "backend", "custom_layer"],
+      },
+      "f",
+    );
+
+    expect(layerDef.options).toEqual(["frontend", "backend", "custom_layer"]);
+  });
+
+  it("rejects type field option mutations via schema write", () => {
+    const current: FieldDef[] = [
+      {
+        key: "type",
+        type: "select",
+        options: ["feature", "bug"],
+      },
+    ];
+
+    const err = thrownBy(() =>
+      applySchemaWrite(current, {
+        fields: [
+          {
+            key: "type",
+            type: "select",
+            options: ["feature", "bug", "badoption"],
+          },
+        ],
+      }),
+    );
+
+    expect(err.code).toBe("TYPE_OPTION_UNKNOWN");
+    expect(err.status).toBe(422);
   });
 });
