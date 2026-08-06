@@ -17,7 +17,8 @@ import {
 import { defaultSettings } from "../projects/defaults.js";
 import { isValidSlug, slugify, uniqueSlug } from "../projects/slug.js";
 import { applyProjectPatch, asObject, type ProjectSettings } from "../projects/validate.js";
-import type { Project } from "../../shared/types.js";
+import { readProjectVersion } from "../projects/version.js";
+import type { Project, ProjectView } from "../../shared/types.js";
 
 export interface ProjectRoutesOptions extends FastifyPluginOptions {
   /** Resolved per request so the database opens lazily. */
@@ -45,6 +46,11 @@ function parseBooleanFlag(value: unknown, field: string): boolean {
   if (value === "true" || value === true) return true;
   if (value === "false" || value === false) return false;
   throw new ApiError("VALIDATION_FAILED", 400, { field }, `${field} must be true or false`);
+}
+
+/** docs/02: `version` is read from the workspace on every read, never stored. */
+function withVersion(project: Project): ProjectView {
+  return { ...project, version: readProjectVersion(project) };
 }
 
 function requireProject(db: Database.Database, slug: string): Project {
@@ -106,7 +112,7 @@ export async function projectRoutes(
 
   app.get("/api/projects", async (req) => {
     const query = (req.query ?? {}) as Record<string, unknown>;
-    const projects = listProjects(getDb(), parseStatusFilter(query["status"]));
+    const projects = listProjects(getDb(), parseStatusFilter(query["status"])).map(withVersion);
     return listEnvelope(projects, { total: projects.length, cursor: null, hasMore: false });
   });
 
@@ -131,12 +137,12 @@ export async function projectRoutes(
 
     insertProject(db, project);
     reply.status(201);
-    return { data: project };
+    return { data: withVersion(project) };
   });
 
   app.get<{ Params: { project: string } }>("/api/projects/:project", async (req) => {
     // An archived project stays readable through the API (docs/02).
-    return { data: requireProject(getDb(), req.params.project) };
+    return { data: withVersion(requireProject(getDb(), req.params.project)) };
   });
 
   app.post<{ Params: { project: string } }>("/api/projects/:project", async (req) => {
@@ -167,7 +173,7 @@ export async function projectRoutes(
     };
 
     updateProject(db, next);
-    return { data: next };
+    return { data: withVersion(next) };
   });
 
   app.delete<{ Params: { project: string } }>("/api/projects/:project", async (req) => {

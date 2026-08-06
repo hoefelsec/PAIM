@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type Database from "better-sqlite3";
@@ -6,8 +6,9 @@ import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../../src/server/app.js";
 import { openDatabase } from "../../../src/server/db/index.js";
+import { clearVersionCache } from "../../../src/server/projects/version.js";
 import { STATUS_CATALOGUE } from "../../../src/shared/statuses.js";
-import type { Project } from "../../../src/shared/types.js";
+import type { Project, ProjectView } from "../../../src/shared/types.js";
 
 const HEADERS = { host: "localhost:4400" };
 
@@ -19,6 +20,7 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "paim-projects-"));
   db = openDatabase(join(dir, "paim.db"));
   app = createApp({ db });
+  clearVersionCache();
 });
 
 afterEach(async () => {
@@ -31,10 +33,10 @@ async function create(body: Record<string, unknown>) {
   return app.inject({ method: "POST", url: "/api/projects", headers: HEADERS, payload: body });
 }
 
-async function createProject(body: Record<string, unknown>): Promise<Project> {
+async function createProject(body: Record<string, unknown>): Promise<ProjectView> {
   const res = await create(body);
   expect(res.statusCode).toBe(201);
-  return res.json().data as Project;
+  return res.json().data as ProjectView;
 }
 
 async function patch(slug: string, body: Record<string, unknown>) {
@@ -341,6 +343,40 @@ describe("statuses validation", () => {
       "executing",
       "done",
     ]);
+  });
+});
+
+describe("version on project reads", () => {
+  it("is null for a project without a workspacePath", async () => {
+    const created = await createProject({ name: "No Workspace" });
+
+    expect(created.version).toBeNull();
+    expect((await read("no-workspace")).json().data.version).toBeNull();
+  });
+
+  it("reflects package.json and updates after the file's mtime changes, without a restart", async () => {
+    const workspace = mkdtempSync(join(tmpdir(), "paim-workspace-"));
+    writeFileSync(join(workspace, "package.json"), JSON.stringify({ version: "1.0.0" }));
+
+    const created = await createProject({
+      name: "Versioned",
+      type: "node",
+      workspacePath: workspace,
+    });
+    expect(created.version).toBe("1.0.0");
+
+    // Same mtime: still 1.0.0 from cache.
+    expect((await read("versioned")).json().data.version).toBe("1.0.0");
+
+    // Bump the source file's mtime and change its content.
+    writeFileSync(join(workspace, "package.json"), JSON.stringify({ version: "2.0.0" }));
+    const future = new Date(Date.now() + 5000);
+    utimesSync(join(workspace, "package.json"), future, future);
+
+    const updated = (await read("versioned")).json().data as ProjectView;
+    expect(updated.version).toBe("2.0.0");
+
+    rmSync(workspace, { recursive: true, force: true });
   });
 });
 

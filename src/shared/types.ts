@@ -111,3 +111,9 @@ export interface Project {
   updatedAt: string;
   archivedAt: string | null;
 }
+
+/**
+ * A project as returned by the API: the stored record plus the workspace
+ * version, read fresh (and cached by mtime) on every read — never stored.
+ */
+export type ProjectView = Project & { version: string | null };
