@@ -602,10 +602,12 @@ number is worse than one that admits it doesn't know yet.
 - **Pause** stops at the next operation boundary, never mid-operation. A
   half-written file or a half-run command is not a state worth being able to
   reach. A paused run holds its place and resumes where it stopped.
-- **Cancel** opens a confirmation, and the confirmation's job is to state the
-  thing people get wrong: **completed operations stay applied.** It names them
-  — "3 files already changed" — and offers *Cancel run* against *Keep running*.
-  There is no rollback, so the dialog must not imply one.
+- **Cancel** opens a confirmation naming what has already been applied — "3
+  files already changed" — and offers three ways out: *Keep running*, *Cancel*
+  (stop, leave the changes), and *Cancel & restore* (stop and rewind the
+  workspace, §7.2.1). The dialog states which side effects restore cannot
+  reach, because the difference between those two cancels is the whole
+  decision.
 
 ```
 GET  /api/activity                   every run, every project
@@ -660,8 +662,27 @@ a table sideways to read a pass/fail column, which is worse than losing the
 list behind it.
 
 ```
-Overview · Questions · Design · Tests · Review
+Overview · Questions · Design · Run · Tests · Review
+                                 └── operations, diffs, output, Restore
 ```
+
+**Run** sits between Design and Tests because that is where it sits in the
+pipeline — the tab order *is* the lifecycle order, so the row of tabs doubles
+as a progress indicator. It carries the live operation list, diffs and terminal
+output, and the **Restore** control (§7.2.1) while the task is unfinished.
+
+**Review** has three of its own:
+
+| Sub-tab | What it holds |
+|---|---|
+| **AI review** | Claude's verdict, its reason, and which app views it opened (§3.4) |
+| **Code review** | The diff of every file the task modified, reviewable in one place |
+| **Manual review** | The plain-language brief, the checklist, and the way in (§3.5) |
+
+Code review is deliberately its own surface rather than a section of the run
+log. The run log answers *what happened, in order*; code review answers *what
+does the tree look like now* — the cumulative diff across every run the task
+took, not the per-operation diffs of one of them.
 
 Tabs appear **only when the project's pipeline includes them** — a project
 without `testing` has no Tests tab. The left column keeps the properties
@@ -817,6 +838,44 @@ Operation {
 }
 ```
 
+### 7.2.1 Restore points — and what they honestly cover
+
+**This softens an earlier claim.** Several sections said flatly that there is no
+rollback. There now is one, but it is narrower than the word suggests, and the
+UI has to be precise about the boundary or it will be trusted for things it
+cannot do.
+
+Every run captures a **restore point** before its first write:
+
+- **Git-backed where possible** — records `HEAD`, and stashes a dirty tree so an
+  uncommitted work-in-progress isn't destroyed by the restore either.
+- **File snapshots otherwise** — the original bytes of every file the run is
+  about to touch, plus the list of paths it creates.
+
+**Restore** reverts tracked files to their pre-run contents and deletes files
+the run created. It is offered **while the task is unfinished** — executing,
+testing, or in review — and disappears once the task is done, because at that
+point the changes are the deliverable.
+
+**What it does not undo, stated on the button's own confirmation:**
+
+| Reverted | Not reverted |
+|---|---|
+| File writes and edits inside the workspace | Packages installed by a command |
+| Files the run created | Services restarted, migrations applied |
+| Staged changes and auto-commits from this run | Anything pushed to a remote |
+| | Writes outside `workspacePath` |
+| | Network calls already made |
+
+A run that only edited files restores cleanly. A run that executed
+`npm install` and `git push` restores its *files* and says plainly that the two
+commands stand. Claiming otherwise would be the worst possible failure — a user
+who believes they've undone a push has not undone a push.
+
+**Cancel and restore are different actions.** Cancel stops the work and leaves
+what happened in place; restore rewinds the workspace. The cancel confirmation
+offers both, because at that moment the user genuinely might want either.
+
 ### 7.3 Execution safety
 
 Executing model-authored file writes and shell commands is the sharpest edge in
@@ -901,9 +960,10 @@ none of them.
 Other controls, independent of mode:
 
 - **Dry run.** Per run, and settable as a project default.
-- **Cancellable mid-run.** Completed operations stay applied and recorded —
-  cancelling stops further work, it does not roll back. The confirmation says
-  so explicitly (§5.2).
+- **Cancellable mid-run.** Cancelling stops further work and leaves completed
+  operations applied. To rewind the workspace instead, **Restore** (§7.2.1) —
+  offered alongside cancel, and separately on the task's Run tab while the task
+  is unfinished.
 
 **Runs are recorded in full** — operations, diffs, stdout, exit codes, token
 usage. This does not contradict §2's anonymous writes: a run record describes
