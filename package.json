@@ -5,7 +5,10 @@
   "type": "module",
   "description": "PAIM — Project AI Manager",
   "scripts": {
-    "dev": "vite",
+    "start": "vite build && tsx src/server/index.ts",
+    "dev": "concurrently -k -n server,client \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "tsx watch src/server/index.ts",
+    "dev:client": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
@@ -17,7 +20,9 @@
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.1",
     "@vitejs/plugin-react": "^5.0.4",
+    "concurrently": "^10.0.4",
     "tailwindcss": "^4.1.14",
+    "tsx": "^4.23.9",
     "typescript": "^5.9.3",
     "vite": "^7.1.9",
     "vitest": "^4.1.10"
