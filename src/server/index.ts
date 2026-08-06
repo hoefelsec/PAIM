@@ -1,10 +1,9 @@
 import { createApp } from "./app.js";
-
-const PORT = 4400;
+import { HOST, PORT } from "./config.js";
 
 const app = createApp();
 
-app.listen({ port: PORT }, (err, address) => {
+app.listen({ port: PORT, host: HOST }, (err, address) => {
   if (err) {
     app.log.error(err);
     process.exit(1);
