@@ -1,4 +1,5 @@
 import { ApiError } from "../errors.js";
+import { parseFieldSchema } from "../fields/schema.js";
 import {
   REQUIRED_STATUSES,
   isStatus,
@@ -13,7 +14,6 @@ import {
   SAFETY_MODES,
   TEST_FRAMEWORKS,
   type Effort,
-  type FieldDef,
   type ModelChoice,
   type Project,
   type RoutingConfig,
@@ -331,7 +331,9 @@ export function applyProjectPatch(base: ProjectSettings, body: unknown): Project
         next.statuses = normalizeStatuses(value);
         break;
       case "fieldSchema":
-        next.fieldSchema = asObjectArray(value, "fieldSchema") as FieldDef[];
+        // The definitions are validated but stored as written: completion with
+        // the documented defaults happens on read (src/shared/fields.ts).
+        next.fieldSchema = parseFieldSchema(value);
         break;
       case "testFramework":
         next.testFramework = asNullableEnum(value, TEST_FRAMEWORKS, "testFramework");

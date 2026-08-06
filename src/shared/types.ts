@@ -2,6 +2,7 @@
  * Types shared by the server and the client. See docs/02-data-model.md.
  */
 
+import type { FieldDef } from "./fields.js";
 import type { Status } from "./statuses.js";
 
 /** docs/12: five project types; the type picks the version source. */
@@ -68,11 +69,10 @@ export interface UsageCaps {
 }
 
 /**
- * A custom field definition. Stored inside `projects.fieldSchema`; its
- * semantics (keys, types, change rules) belong to the custom-fields work,
- * so the projects layer only round-trips the JSON.
+ * A custom field definition. Stored inside `projects.fieldSchema`; its shape
+ * and its change rules live in ./fields.ts and src/server/fields/.
  */
-export type FieldDef = Record<string, unknown>;
+export type { FieldDef };
 
 /**
  * A regression test definition (docs/12 `TestDef`). Stored inside

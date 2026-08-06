@@ -53,7 +53,8 @@ function withVersion(project: Project): ProjectView {
   return { ...project, version: readProjectVersion(project) };
 }
 
-function requireProject(db: Database.Database, slug: string): Project {
+/** Reads a project by slug, or fails with `404 PROJECT_NOT_FOUND`. */
+export function requireProject(db: Database.Database, slug: string): Project {
   const project = getProjectBySlug(db, slug);
   if (!project) {
     throw new ApiError("PROJECT_NOT_FOUND", 404, { project: slug }, `No project "${slug}"`);

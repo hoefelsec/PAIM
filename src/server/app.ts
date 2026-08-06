@@ -8,6 +8,7 @@ import { errorEnvelope } from "./envelope.js";
 import { PORT } from "./config.js";
 import { openDatabase } from "./db/index.js";
 import { projectRoutes } from "./routes/projects.js";
+import { schemaRoutes } from "./routes/schema.js";
 
 const pkgPath = fileURLToPath(new URL("../../package.json", import.meta.url));
 const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { version: string };
@@ -72,6 +73,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   }));
 
   app.register(projectRoutes, { getDb });
+  app.register(schemaRoutes, { getDb });
 
   if (existsSync(staticDir)) {
     app.register(fastifyStatic, {
