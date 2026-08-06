@@ -1,10 +1,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import type Database from "better-sqlite3";
 import Fastify, { type FastifyInstance } from "fastify";
 import fastifyStatic from "@fastify/static";
 import { ApiError } from "./errors.js";
 import { errorEnvelope } from "./envelope.js";
 import { PORT } from "./config.js";
+import { openDatabase } from "./db/index.js";
+import { projectRoutes } from "./routes/projects.js";
 
 const pkgPath = fileURLToPath(new URL("../../package.json", import.meta.url));
 const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { version: string };
@@ -26,6 +29,19 @@ export interface CreateAppOptions {
    * don't depend on a real client build.
    */
   staticDir?: string;
+
+  /**
+   * An already-open database. Tests pass a temporary one; the process entry
+   * point passes the real `data/paim.db`.
+   */
+  db?: Database.Database;
+
+  /**
+   * Path to open the database from when `db` is not given. Opened lazily on
+   * the first request that needs it, so an app created only to serve the
+   * client or `/api/health` never touches the filesystem.
+   */
+  dbPath?: string;
 }
 
 /**
@@ -48,9 +64,14 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     }
   });
 
+  let db = options.db;
+  const getDb = (): Database.Database => (db ??= openDatabase(options.dbPath));
+
   app.get("/api/health", async () => ({
     data: { ok: true, version: pkg.version },
   }));
+
+  app.register(projectRoutes, { getDb });
 
   if (existsSync(staticDir)) {
     app.register(fastifyStatic, {
@@ -64,6 +85,20 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       reply.status(err.status).send(errorEnvelope(err.code, err.message, err.details));
       return;
     }
+    // Fastify's own client-side errors (malformed JSON, a missing or wrong
+    // Content-Type) already carry a 4xx status and a stable code; they are
+    // the caller's fault, not an internal failure.
+    const fastifyError = err as { statusCode?: number; code?: string; message?: string };
+    const status = fastifyError.statusCode;
+    if (typeof status === "number" && status >= 400 && status < 500) {
+      reply
+        .status(status)
+        .send(
+          errorEnvelope(fastifyError.code ?? "BAD_REQUEST", fastifyError.message ?? "Bad request"),
+        );
+      return;
+    }
+
     // Unknown errors never leak internals (message, stack) to the client.
     reply.status(500).send(errorEnvelope("INTERNAL", "Internal server error"));
   });

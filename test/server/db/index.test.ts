@@ -50,7 +50,7 @@ describe("openDatabase", () => {
     expect(row).toEqual({ name: "migrations" });
 
     const applied = db.prepare("SELECT name FROM migrations").all() as Array<{ name: string }>;
-    expect(applied).toEqual([{ name: "001_create_migrations_table.sql" }]);
+    expect(applied[0]).toEqual({ name: "001_create_migrations_table.sql" });
 
     db.close();
   });
@@ -59,11 +59,14 @@ describe("openDatabase", () => {
     const dbPath = join(dir, "paim.db");
 
     const db1 = openDatabase(dbPath);
+    const first = (db1.prepare("SELECT COUNT(*) as n FROM migrations").get() as { n: number }).n;
     db1.close();
+    expect(first).toBeGreaterThan(0);
 
     const db2 = openDatabase(dbPath);
     const applied = db2.prepare("SELECT COUNT(*) as n FROM migrations").get() as { n: number };
-    expect(applied.n).toBe(1);
+    // The second open applies nothing: the count is unchanged, not doubled.
+    expect(applied.n).toBe(first);
     db2.close();
   });
 });
