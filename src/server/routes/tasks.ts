@@ -44,6 +44,7 @@ import {
   initialStatus,
   kindForSize,
   taskCore,
+  type TaskCore,
 } from "../tasks/validate.js";
 import {
   checkEpicHasNoChildren,
@@ -52,8 +53,11 @@ import {
   computeEpicProgress,
   type EpicProgress,
 } from "../tasks/epics.js";
+import { checkManualStatusMove } from "../tasks/pipeline.js";
 import { asObject, asStringArray, parseBooleanFlag } from "../validate.js";
 import { requireProject } from "./projects.js";
+import { closedAtFor } from "../../shared/pipeline.js";
+import type { Status } from "../../shared/statuses.js";
 import type { Project, Task } from "../../shared/types.js";
 
 export interface TaskRoutesOptions extends FastifyPluginOptions {
@@ -117,6 +121,30 @@ function checkIfMatch(req: FastifyRequest, task: Task): void {
     { expected, current: task.updatedAt },
     "The task changed since the version this write was based on",
   );
+}
+
+/**
+ * The status half of an update (specs/04, T26). A write may only move a task
+ * along a legal edge of the pipeline — forward while the gate it leaves needs
+ * no actor, `cancelled` from anywhere, re-open from `done`; anything else is
+ * `422 GATE_REQUIRED`. A move that lands in (or leaves) a closed category
+ * takes the `closedAt` stamp with it, unless the same write states a
+ * `closedAt` of its own.
+ */
+function resolveStatusWrite(
+  current: Task,
+  core: TaskCore,
+  body: Record<string, unknown>,
+  statuses: readonly Status[],
+): { status: Status; closedAt: string | null } {
+  checkManualStatusMove(current, core.status, statuses);
+  if (core.status === current.status || "closedAt" in body) {
+    return { status: core.status, closedAt: core.closedAt };
+  }
+  return {
+    status: core.status,
+    closedAt: closedAtFor(core.status, current.closedAt, new Date().toISOString()),
+  };
 }
 
 /**
@@ -213,6 +241,9 @@ export async function taskRoutes(app: FastifyInstance, options: TaskRoutesOption
           projectId: project.id,
           kind: kindForSize(core.size),
           fields: write.fields,
+          // docs/04: the transition engine attaches a failure reason; a task
+          // that has never run has none.
+          failureReason: null,
           deletedAt: null,
           createdAt: now,
           updatedAt: now,
@@ -257,10 +288,12 @@ export async function taskRoutes(app: FastifyInstance, options: TaskRoutesOption
     checkNotNestedEpic(core.size, parentId);
     // docs/02: refuses to change the size away from Epic while it has children.
     checkEpicHasNoChildren(db, current, core.size);
+    const status = resolveStatusWrite(current, core, body, project.statuses);
 
     const next: Task = {
       ...current,
       ...core,
+      ...status,
       parentId,
       kind: kindForSize(core.size),
       fields: write.fields,
@@ -395,10 +428,12 @@ export async function taskRoutes(app: FastifyInstance, options: TaskRoutesOption
 
             checkNotNestedEpic(core.size, parentId);
             checkEpicHasNoChildren(db, current, core.size);
+            const status = resolveStatusWrite(current, core, patch, project.statuses);
 
             const next: Task = {
               ...current,
               ...core,
+              ...status,
               parentId,
               kind: kindForSize(core.size),
               fields: write.fields,

@@ -70,6 +70,7 @@ function makeTrashedTask(project: Project, deletedAt: string): Task {
     sourcePrompt: "",
     evaluatedAt: null,
     staleReason: null,
+    failureReason: null,
     deletedAt,
     createdAt: now,
     updatedAt: now,

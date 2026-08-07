@@ -92,6 +92,7 @@ interface TaskRow {
   sourcePrompt: string;
   evaluatedAt: string | null;
   staleReason: string | null;
+  failureReason: string | null;
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -126,6 +127,7 @@ const COLUMNS = [
   "sourcePrompt",
   "evaluatedAt",
   "staleReason",
+  "failureReason",
   "deletedAt",
   "createdAt",
   "updatedAt",
@@ -161,6 +163,7 @@ function taskToRow(task: Task): Record<string, unknown> {
     sourcePrompt: task.sourcePrompt,
     evaluatedAt: task.evaluatedAt,
     staleReason: task.staleReason,
+    failureReason: task.failureReason,
     deletedAt: task.deletedAt,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
@@ -197,6 +200,7 @@ function rowToTask(row: TaskRow): Task {
     sourcePrompt: row.sourcePrompt,
     evaluatedAt: row.evaluatedAt,
     staleReason: row.staleReason as Task["staleReason"],
+    failureReason: row.failureReason,
     deletedAt: row.deletedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -246,6 +250,7 @@ function fullTask(overrides: Partial<Task> = {}): Task {
     sourcePrompt: "Build the tasks table.",
     evaluatedAt: "2026-08-01T12:00:00.000Z",
     staleReason: "dependency",
+    failureReason: "the regression suite failed: 2 of 41",
     deletedAt: null,
     createdAt: "2026-08-01T10:00:00.000Z",
     updatedAt: "2026-08-01T10:00:00.000Z",
@@ -307,6 +312,7 @@ describe("insert and read round-trip", () => {
       schedule: null,
       evaluatedAt: null,
       staleReason: null,
+      failureReason: null,
       deletedAt: null,
       closedAt: null,
     });

@@ -545,6 +545,7 @@ describe("GET /api/projects/:project/tasks — performance", () => {
           sourcePrompt: "",
           evaluatedAt: null,
           staleReason: null,
+          failureReason: null,
           deletedAt: null,
           createdAt: now,
           updatedAt: new Date(Date.now() + i).toISOString(),

@@ -14,6 +14,7 @@ import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../../src/server/app.js";
 import { openDatabase } from "../../../src/server/db/index.js";
+import { getTaskByRef, updateTask } from "../../../src/server/db/tasks.js";
 import { clearValidatorCache } from "../../../src/server/fields/validator.js";
 import { clearVersionCache } from "../../../src/server/projects/version.js";
 import { DEFAULT_STATUSES } from "../../../src/shared/statuses.js";
@@ -78,6 +79,17 @@ function patch(slug: string, ref: string, body: Record<string, unknown>) {
 
 function read(slug: string, ref: string) {
   return app.inject({ method: "GET", url: `/api/projects/${slug}/tasks/${ref}`, headers: HEADERS });
+}
+
+/**
+ * Puts a task in a resolved status straight through the storage layer. Since
+ * T26 the task API only accepts the legal moves of the pipeline, and reaching
+ * `done` needs gates (a run, the tests) that belong to later specs; the
+ * subject here is the progress count, not the way a task gets there.
+ */
+function setStatus(projectId: string, ref: string, status: Task["status"]): void {
+  const task = getTaskByRef(db, projectId, ref)!;
+  updateTask(db, { ...task, status });
 }
 
 describe("epic invariants (T15)", () => {
@@ -192,9 +204,9 @@ describe("epic invariants (T15)", () => {
     await createTask(project.slug, { title: "D", parentId: epic.key });
     await createTask(project.slug, { title: "E", parentId: epic.key });
 
-    await patch(project.slug, a.key, { status: "done" });
-    await patch(project.slug, b.key, { status: "done" });
-    await patch(project.slug, c.key, { status: "cancelled" });
+    setStatus(project.id, a.key, "done");
+    setStatus(project.id, b.key, "done");
+    setStatus(project.id, c.key, "cancelled");
 
     const res = await read(project.slug, epic.key);
 

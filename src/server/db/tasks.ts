@@ -49,6 +49,7 @@ interface TaskRow {
   sourcePrompt: string;
   evaluatedAt: string | null;
   staleReason: string | null;
+  failureReason: string | null;
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -83,6 +84,7 @@ const COLUMNS = [
   "sourcePrompt",
   "evaluatedAt",
   "staleReason",
+  "failureReason",
   "deletedAt",
   "createdAt",
   "updatedAt",
@@ -123,6 +125,7 @@ export function rowToTask(row: TaskRow): Task {
     sourcePrompt: row.sourcePrompt,
     evaluatedAt: row.evaluatedAt,
     staleReason: row.staleReason as Task["staleReason"],
+    failureReason: row.failureReason,
     deletedAt: row.deletedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -159,6 +162,7 @@ function taskToRow(task: Task): TaskRow {
     sourcePrompt: task.sourcePrompt,
     evaluatedAt: task.evaluatedAt,
     staleReason: task.staleReason,
+    failureReason: task.failureReason,
     deletedAt: task.deletedAt,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,

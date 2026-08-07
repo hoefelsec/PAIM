@@ -155,6 +155,13 @@ export interface Task {
   sourcePrompt: string;
   evaluatedAt: string | null;
   staleReason: StaleReason | null;
+  /**
+   * Why the last gate failed (docs/04 "Failure moves the task back to
+   * `executing`"): the service attaches it, the next run receives it as part
+   * of its brief, and the next advance clears it. Server-owned — the task API
+   * returns it and never accepts it.
+   */
+  failureReason: string | null;
   /** Soft delete (docs/06 "The trash"); null means the task is not trashed. */
   deletedAt: string | null;
   createdAt: string;

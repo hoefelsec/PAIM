@@ -88,6 +88,7 @@ export function makeTask(overrides: Partial<TaskView> = {}): TaskView {
     sourcePrompt: "",
     evaluatedAt: null,
     staleReason: null,
+    failureReason: null,
     deletedAt: null,
     createdAt: now,
     updatedAt: now,

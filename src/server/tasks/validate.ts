@@ -47,7 +47,16 @@ import {
  */
 export type TaskCore = Omit<
   Task,
-  "id" | "key" | "projectId" | "kind" | "fields" | "deletedAt" | "createdAt" | "updatedAt"
+  | "id"
+  | "key"
+  | "projectId"
+  | "kind"
+  | "fields"
+  // The transition engine owns it (docs/04); a caller never writes it.
+  | "failureReason"
+  | "deletedAt"
+  | "createdAt"
+  | "updatedAt"
 >;
 
 /**
@@ -63,6 +72,9 @@ const READ_ONLY_PROPERTIES = new Set([
   "projectId",
   // docs/02 "Epic": the service derives `kind` from `size`.
   "kind",
+  // docs/04: the transition engine attaches the reason of a failed gate and
+  // clears it on the next advance.
+  "failureReason",
   "deletedAt",
   "createdAt",
   "updatedAt",
