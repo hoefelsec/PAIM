@@ -7,9 +7,19 @@ import { ApiError } from "./errors.js";
 import { errorEnvelope } from "./envelope.js";
 import { PORT } from "./config.js";
 import { openDatabase } from "./db/index.js";
+import { onChange } from "./events/changes.js";
+import { SseHub } from "./events/sse.js";
+import { eventRoutes } from "./routes/events.js";
 import { projectRoutes } from "./routes/projects.js";
 import { schemaRoutes } from "./routes/schema.js";
 import { taskRoutes } from "./routes/tasks.js";
+
+declare module "fastify" {
+  interface FastifyInstance {
+    /** The SSE connection registry behind `GET /api/events`. */
+    sse: SseHub;
+  }
+}
 
 const pkgPath = fileURLToPath(new URL("../../package.json", import.meta.url));
 const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { version: string };
@@ -44,6 +54,12 @@ export interface CreateAppOptions {
    * client or `/api/health` never touches the filesystem.
    */
   dbPath?: string;
+
+  /**
+   * How often an open SSE stream writes its heartbeat comment. Defaults to
+   * the 25 s of specs/06; a test shortens it rather than waiting.
+   */
+  sseHeartbeatMs?: number;
 }
 
 /**
@@ -66,13 +82,34 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     }
   });
 
+  // Every data change reaches the open streams through the storage layer's
+  // change bus (src/server/events/changes.ts), which hangs off the database
+  // handle — so the subscription is made the first time the database is
+  // resolved, and dropped when the app closes.
+  const hub = new SseHub({ heartbeatMs: options.sseHeartbeatMs });
+  app.decorate("sse", hub);
+
   let db = options.db;
-  const getDb = (): Database.Database => (db ??= openDatabase(options.dbPath));
+  let unsubscribe: (() => void) | null = null;
+  const getDb = (): Database.Database => {
+    db ??= openDatabase(options.dbPath);
+    unsubscribe ??= onChange(db, (event) => {
+      hub.broadcast(event);
+    });
+    return db;
+  };
+
+  app.addHook("onClose", async () => {
+    unsubscribe?.();
+    unsubscribe = null;
+    hub.closeAll();
+  });
 
   app.get("/api/health", async () => ({
     data: { ok: true, version: pkg.version },
   }));
 
+  app.register(eventRoutes, { getDb, hub });
   app.register(projectRoutes, { getDb });
   app.register(schemaRoutes, { getDb });
   app.register(taskRoutes, { getDb });

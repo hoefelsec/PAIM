@@ -10,6 +10,7 @@
  */
 
 import type Database from "better-sqlite3";
+import { emitChange } from "../events/changes.js";
 import {
   CLOSED_STATUSES,
   OPEN_STATUSES,
@@ -169,15 +170,32 @@ export function insertTask(db: Database.Database, task: Task): Task {
   const names = COLUMNS.map(column).join(", ");
   const placeholders = COLUMNS.map((c) => `@${c}`).join(", ");
   db.prepare(`INSERT INTO tasks (${names}) VALUES (${placeholders})`).run(taskToRow(task));
+  emitChange(db, {
+    type: "task",
+    id: task.id,
+    projectId: task.projectId,
+    change: "created",
+  });
   return task;
 }
 
 /** Rewrites every column of an existing row. `id` never changes. */
 export function updateTask(db: Database.Database, task: Task): Task {
+  const previous = db.prepare("SELECT deletedAt FROM tasks WHERE id = ?").get(task.id) as
+    | { deletedAt: string | null }
+    | undefined;
   const assignments = COLUMNS.filter((c) => c !== "id")
     .map((c) => `${column(c)} = @${c}`)
     .join(", ");
   db.prepare(`UPDATE tasks SET ${assignments} WHERE id = @id`).run(taskToRow(task));
+
+  // The trash is a soft delete: to every reader the task is gone, so it goes
+  // on the stream as `deleted` — and comes back as `created`, because a
+  // restore puts a task a client had dropped back into its reads.
+  const wasTrashed = previous?.deletedAt != null;
+  const isTrashed = task.deletedAt !== null;
+  const change = !wasTrashed && isTrashed ? "deleted" : wasTrashed && !isTrashed ? "created" : "updated";
+  emitChange(db, { type: "task", id: task.id, projectId: task.projectId, change });
   return task;
 }
 
@@ -221,7 +239,15 @@ export function getTaskById(
 
 /** Removes the row for good — `DELETE ?hard=true`, which skips the trash. */
 export function hardDeleteTask(db: Database.Database, id: string): void {
+  const row = db.prepare("SELECT projectId, deletedAt FROM tasks WHERE id = ?").get(id) as
+    | { projectId: string; deletedAt: string | null }
+    | undefined;
   db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
+  // A task already in the trash announced its disappearance then; purging
+  // the row changes nothing a reader can see.
+  if (row && row.deletedAt === null) {
+    emitChange(db, { type: "task", id, projectId: row.projectId, change: "deleted" });
+  }
 }
 
 /**
@@ -243,6 +269,9 @@ export function listTrashedTasks(db: Database.Database, projectId: string): Task
  * every 24 h purges rows older than the project's `trashRetentionDays`").
  * `now` is a parameter so a test can drive it without mocking the system
  * clock. Returns the number of rows purged.
+ *
+ * The sweep emits nothing: every row it purges is already in the trash, and
+ * left every read — with its `task/deleted` event — when it was trashed.
  */
 export function sweepTrash(db: Database.Database, now: string = new Date().toISOString()): number {
   const rows = db

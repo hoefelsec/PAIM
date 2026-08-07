@@ -14,6 +14,7 @@ import {
   updateProject,
   type ProjectStatusFilter,
 } from "../db/projects.js";
+import { transaction } from "../events/changes.js";
 import { invalidateValidator } from "../fields/validator.js";
 import { defaultSettings } from "../projects/defaults.js";
 import { isValidSlug, slugify, uniqueSlug } from "../projects/slug.js";
@@ -189,7 +190,9 @@ export async function projectRoutes(
       );
     }
 
-    const removeAll = db.transaction(() => {
+    // `transaction` here, not `db.transaction`: the events of a delete that
+    // rolls back must never reach the stream (src/server/events/changes.ts).
+    const removeAll = transaction(db, () => {
       deleteProjectTasks(db, project.id);
       deleteProject(db, project.id);
     });

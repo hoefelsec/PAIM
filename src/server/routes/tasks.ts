@@ -13,8 +13,9 @@
  *
  * The retention sweep that purges old trashed rows lives in
  * src/server/tasks/sweep.js, on top of src/server/db/tasks.js's
- * `sweepTrash`. The bulk patch, the status gates, the epic invariants and
- * the change events all belong to later work.
+ * `sweepTrash`. No handler here emits a change event: every write announces
+ * itself from the storage layer (src/server/events/changes.js), which is why
+ * the transactions below are opened through `transaction()`.
  */
 
 import { randomUUID } from "node:crypto";
@@ -32,6 +33,7 @@ import {
 } from "../db/tasks.js";
 import { listEnvelope } from "../envelope.js";
 import { ApiError } from "../errors.js";
+import { transaction } from "../events/changes.js";
 import { readFields } from "../fields/values.js";
 import { applyFieldsWrite } from "../tasks/fields.js";
 import { nextTaskKey } from "../tasks/keys.js";
@@ -200,7 +202,7 @@ export async function taskRoutes(app: FastifyInstance, options: TaskRoutesOption
       checkNotNestedEpic(core.size, parentId);
 
       const now = new Date().toISOString();
-      const create = db.transaction((): Task => {
+      const create = transaction(db, (): Task => {
         const task: Task = {
           ...core,
           parentId,
@@ -358,10 +360,13 @@ export async function taskRoutes(app: FastifyInstance, options: TaskRoutesOption
       // Run all updates in one transaction, collecting per-task results.
       // Each task update runs in its own SAVEPOINT so schema changes
       // (from unknown fields) are rolled back if that task's validation fails.
-      const results = db.transaction(() => {
+      const results = transaction(db, () => {
         return ids.map((id) => {
           // Wrap each task update in its own SAVEPOINT for isolation.
-          const updateOneTask = db.transaction(() => {
+          // `transaction` (not `db.transaction`) holds the change events of
+          // each task back until the whole patch commits, and drops those of
+          // a task whose savepoint rolls back.
+          const updateOneTask = transaction(db, () => {
             const current = getTaskByRef(db, project.id, id);
             if (!current) {
               return {

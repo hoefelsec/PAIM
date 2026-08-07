@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { emitChange } from "../events/changes.js";
 import type { Status } from "../../shared/statuses.js";
 import type {
   FieldDef,
@@ -131,20 +132,67 @@ function projectToRow(project: Project): ProjectRow {
   };
 }
 
+/**
+ * The columns the schema endpoints own (docs/06: the field schema and the
+ * pipeline). A write that moves one of them is a `schema` change on the
+ * stream; a write that moves any other column is a `project` change.
+ */
+const SCHEMA_COLUMNS = new Set<string>(["fieldSchema", "statuses"]);
+
 export function insertProject(db: Database.Database, project: Project): Project {
   const row = projectToRow(project);
   const placeholders = COLUMNS.map((c) => `@${c}`).join(", ");
   db.prepare(`INSERT INTO projects (${COLUMNS.join(", ")}) VALUES (${placeholders})`).run(row);
+  emitChange(db, {
+    type: "project",
+    id: project.id,
+    projectId: project.id,
+    change: "created",
+  });
   return project;
+}
+
+/**
+ * Which events a rewrite of the row announces. The row carries a project and
+ * its schema, so one statement can change both records; `updatedAt` moves on
+ * every write and never means a change on its own.
+ */
+function emitProjectUpdate(
+  db: Database.Database,
+  previous: ProjectRow | null,
+  next: ProjectRow,
+): void {
+  const moved = (column: (typeof COLUMNS)[number]): boolean =>
+    previous === null || previous[column] !== next[column];
+
+  const schemaMoved = [...SCHEMA_COLUMNS].some((column) =>
+    moved(column as (typeof COLUMNS)[number]),
+  );
+  const projectMoved = COLUMNS.some(
+    (column) => column !== "updatedAt" && !SCHEMA_COLUMNS.has(column) && moved(column),
+  );
+
+  if (schemaMoved) {
+    emitChange(db, { type: "schema", id: next.id, projectId: next.id, change: "updated" });
+  }
+  // A write that touched nothing else still reports the project once, so
+  // every write path produces exactly one event per record it wrote.
+  if (projectMoved || !schemaMoved) {
+    emitChange(db, { type: "project", id: next.id, projectId: next.id, change: "updated" });
+  }
 }
 
 /** Rewrites every column of an existing row. `id` and `slug` never change. */
 export function updateProject(db: Database.Database, project: Project): Project {
+  const previous = db.prepare("SELECT * FROM projects WHERE id = ?").get(project.id) as
+    | ProjectRow
+    | undefined;
   const row = projectToRow(project);
   const assignments = COLUMNS.filter((c) => c !== "id")
     .map((c) => `${c} = @${c}`)
     .join(", ");
   db.prepare(`UPDATE projects SET ${assignments} WHERE id = @id`).run(row);
+  emitProjectUpdate(db, previous ?? null, row);
   return project;
 }
 
@@ -181,7 +229,11 @@ export function listProjects(db: Database.Database, filter: ProjectStatusFilter)
 }
 
 export function deleteProject(db: Database.Database, id: string): void {
+  const existed = db.prepare("SELECT 1 FROM projects WHERE id = ?").get(id) !== undefined;
   db.prepare("DELETE FROM projects WHERE id = ?").run(id);
+  if (existed) {
+    emitChange(db, { type: "project", id, projectId: id, change: "deleted" });
+  }
 }
 
 function tableExists(db: Database.Database, name: string): boolean {
@@ -207,10 +259,19 @@ export function countProjectTasks(db: Database.Database, projectId: string): num
 /** Removes a project's tasks along with the project (`?force=true`). */
 export function deleteProjectTasks(db: Database.Database, projectId: string): void {
   if (!tableExists(db, "tasks")) return;
+  // A task already in the trash left every read — and produced its `deleted`
+  // event — when it was trashed, so the purge reports only the live ones.
+  const removed = db
+    .prepare("SELECT id FROM tasks WHERE projectId = ? AND deletedAt IS NULL")
+    .all(projectId) as { id: string }[];
   // `parentId` is a foreign key onto `tasks` itself, and the constraint is
   // checked row by row: a child still pointing at an epic deleted earlier in
   // the sweep would abort it. Detaching the children first makes the order
   // of the delete irrelevant.
   db.prepare("UPDATE tasks SET parentId = NULL WHERE projectId = ?").run(projectId);
   db.prepare("DELETE FROM tasks WHERE projectId = ?").run(projectId);
+
+  for (const row of removed) {
+    emitChange(db, { type: "task", id: row.id, projectId, change: "deleted" });
+  }
 }
