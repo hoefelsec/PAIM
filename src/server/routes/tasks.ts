@@ -53,6 +53,7 @@ import {
   computeEpicProgress,
   type EpicProgress,
 } from "../tasks/epics.js";
+import { validateDependsOn } from "../tasks/dependencies.js";
 import { checkManualStatusMove } from "../tasks/pipeline.js";
 import { asObject, asStringArray, parseBooleanFlag } from "../validate.js";
 import { requireProject } from "./projects.js";
@@ -229,12 +230,20 @@ export async function taskRoutes(app: FastifyInstance, options: TaskRoutesOption
       // docs/02 "One level": a child cannot be an epic.
       checkNotNestedEpic(core.size, parentId);
 
+      // Generated up front (rather than inside the transaction below) so
+      // the cycle check has this task's own id to walk back to — see
+      // src/server/tasks/dependencies.js. A brand-new id cannot already
+      // appear in another task's stored `dependsOn`, so this only ever
+      // catches a client naming the id it expects the create to receive.
+      const taskId = randomUUID();
+      validateDependsOn(db, { taskId, projectId: project.id }, core.dependsOn);
+
       const now = new Date().toISOString();
       const create = transaction(db, (): Task => {
         const task: Task = {
           ...core,
           parentId,
-          id: randomUUID(),
+          id: taskId,
           // The counter moves inside this transaction, so a failed insert
           // gives the number back (docs/02 "Task keys").
           key: nextTaskKey(db, project.id, write.fields["type"]),
@@ -288,6 +297,16 @@ export async function taskRoutes(app: FastifyInstance, options: TaskRoutesOption
     checkNotNestedEpic(core.size, parentId);
     // docs/02: refuses to change the size away from Epic while it has children.
     checkEpicHasNoChildren(db, current, core.size);
+    // Only ids newly introduced by this write are re-validated — see
+    // `validateDependsOn`. An id the task already carried keeps working
+    // even after its target is hard-deleted or swept from the trash,
+    // whether or not this patch happens to touch `dependsOn`.
+    validateDependsOn(
+      db,
+      { taskId: current.id, projectId: project.id },
+      core.dependsOn,
+      current.dependsOn,
+    );
     const status = resolveStatusWrite(current, core, body, project.statuses);
 
     const next: Task = {
@@ -428,6 +447,14 @@ export async function taskRoutes(app: FastifyInstance, options: TaskRoutesOption
 
             checkNotNestedEpic(core.size, parentId);
             checkEpicHasNoChildren(db, current, core.size);
+            // See the single-update route: only ids newly introduced by
+            // this patch are re-validated.
+            validateDependsOn(
+              db,
+              { taskId: current.id, projectId: project.id },
+              core.dependsOn,
+              current.dependsOn,
+            );
             const status = resolveStatusWrite(current, core, patch, project.statuses);
 
             const next: Task = {
