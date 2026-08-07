@@ -43,6 +43,13 @@ import {
   kindForSize,
   taskCore,
 } from "../tasks/validate.js";
+import {
+  checkEpicHasNoChildren,
+  checkNotNestedEpic,
+  checkParentIsEpic,
+  computeEpicProgress,
+  type EpicProgress,
+} from "../tasks/epics.js";
 import { asObject, parseBooleanFlag } from "../validate.js";
 import { requireProject } from "./projects.js";
 import type { Project, Task } from "../../shared/types.js";
@@ -60,10 +67,18 @@ interface TaskParams {
 /**
  * A task as the API returns it: the stored record with its custom values
  * completed from the schema (docs/03 rule 1 — a field with no stored value
- * reads as its default).
+ * reads as its default), plus — for an epic — its progress (docs/02
+ * "Epic — Progress"), computed fresh on every read rather than stored.
  */
-function taskView(project: Project, task: Task): Task {
-  return { ...task, fields: readFields(project.fieldSchema, task.fields) };
+function taskView(db: Database.Database, project: Project, task: Task): Task & { progress?: EpicProgress } {
+  const view: Task & { progress?: EpicProgress } = {
+    ...task,
+    fields: readFields(project.fieldSchema, task.fields),
+  };
+  if (task.kind === "epic") {
+    view.progress = computeEpicProgress(db, task.id);
+  }
+  return view;
 }
 
 /** Reads one task of a project by key or UUID, or fails with `404 TASK_NOT_FOUND`. */
@@ -109,7 +124,21 @@ function checkIfMatch(req: FastifyRequest, task: Task): void {
  * to nothing at all is refused here so the write never reaches the foreign
  * key as an opaque failure.
  */
-function resolveParent(db: Database.Database, project: Project, ref: string | null): string | null {
+interface ResolveParentOptions {
+  /**
+   * docs/02 "parentId must point at an epic in the same project": checked
+   * only for a write that sets `parentId`, not for the `parent=` list
+   * filter, which must still find children of any task shape.
+   */
+  requireEpic?: boolean;
+}
+
+function resolveParent(
+  db: Database.Database,
+  project: Project,
+  ref: string | null,
+  options: ResolveParentOptions = {},
+): string | null {
   if (ref === null) return null;
   const parent = getTaskByRef(db, project.id, ref);
   if (!parent) {
@@ -120,6 +149,7 @@ function resolveParent(db: Database.Database, project: Project, ref: string | nu
       `No task "${ref}" in project "${project.slug}" to use as the parent`,
     );
   }
+  if (options.requireEpic) checkParentIsEpic(parent);
   return parent.id;
 }
 
@@ -138,7 +168,7 @@ export async function taskRoutes(app: FastifyInstance, options: TaskRoutesOption
 
     const page = listTasks(db, project.id, spec);
     return listEnvelope(
-      page.tasks.map((task) => taskView(project, task)),
+      page.tasks.map((task) => taskView(db, project, task)),
       {
         total: page.total,
         cursor: page.cursorValues === null ? null : encodeCursor(spec.signature, page.cursorValues),
@@ -165,7 +195,9 @@ export async function taskRoutes(app: FastifyInstance, options: TaskRoutesOption
         statuses: project.statuses,
       });
       const write = applyFieldsWrite(db, project, body["fields"], {}, allowUnknownFields);
-      const parentId = resolveParent(db, project, core.parentId);
+      const parentId = resolveParent(db, project, core.parentId, { requireEpic: true });
+      // docs/02 "One level": a child cannot be an epic.
+      checkNotNestedEpic(core.size, parentId);
 
       const now = new Date().toISOString();
       const create = db.transaction((): Task => {
@@ -187,14 +219,14 @@ export async function taskRoutes(app: FastifyInstance, options: TaskRoutesOption
       });
 
       reply.status(201);
-      return { data: taskView(write.project, create()), warnings: write.warnings };
+      return { data: taskView(db, write.project, create()), warnings: write.warnings };
     },
   );
 
   app.get<{ Params: TaskParams }>("/api/projects/:project/tasks/:key", async (req) => {
     const db = getDb();
     const project = requireProject(db, req.params.project);
-    return { data: taskView(project, requireTask(db, project, req.params.key)) };
+    return { data: taskView(db, project, requireTask(db, project, req.params.key)) };
   });
 
   const update = async (req: FastifyRequest<{ Params: TaskParams }>) => {
@@ -216,7 +248,13 @@ export async function taskRoutes(app: FastifyInstance, options: TaskRoutesOption
     // restored. Only a written reference is resolved, and one that names a
     // trashed task is still refused.
     const parentId =
-      "parentId" in body ? resolveParent(db, project, core.parentId) : current.parentId;
+      "parentId" in body
+        ? resolveParent(db, project, core.parentId, { requireEpic: true })
+        : current.parentId;
+    // docs/02 "One level": a child cannot be an epic.
+    checkNotNestedEpic(core.size, parentId);
+    // docs/02: refuses to change the size away from Epic while it has children.
+    checkEpicHasNoChildren(db, current, core.size);
 
     const next: Task = {
       ...current,
@@ -228,7 +266,7 @@ export async function taskRoutes(app: FastifyInstance, options: TaskRoutesOption
     };
     updateTask(db, next);
 
-    return { data: taskView(write.project, next), warnings: write.warnings };
+    return { data: taskView(db, write.project, next), warnings: write.warnings };
   };
 
   app.post<{ Params: TaskParams }>("/api/projects/:project/tasks/:key", update);
@@ -273,7 +311,7 @@ export async function taskRoutes(app: FastifyInstance, options: TaskRoutesOption
     const project = requireProject(db, req.params.project);
     const trashed = listTrashedTasks(db, project.id);
     return listEnvelope(
-      trashed.map((task) => taskView(project, task)),
+      trashed.map((task) => taskView(db, project, task)),
       { total: trashed.length, cursor: null, hasMore: false },
     );
   });
@@ -301,7 +339,7 @@ export async function taskRoutes(app: FastifyInstance, options: TaskRoutesOption
         updatedAt: nextTimestamp(task.updatedAt),
       };
       updateTask(db, restored);
-      return { data: taskView(project, restored) };
+      return { data: taskView(db, project, restored) };
     },
   );
 }
