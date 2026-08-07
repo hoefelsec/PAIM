@@ -89,7 +89,7 @@ function taskView(db: Database.Database, project: Project, task: Task): Task & {
 }
 
 /** Reads one task of a project by key or UUID, or fails with `404 TASK_NOT_FOUND`. */
-function requireTask(db: Database.Database, project: Project, ref: string): Task {
+export function requireTask(db: Database.Database, project: Project, ref: string): Task {
   const task = getTaskByRef(db, project.id, ref);
   if (!task) {
     throw new ApiError(

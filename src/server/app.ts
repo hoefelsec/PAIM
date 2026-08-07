@@ -11,6 +11,7 @@ import { onChange } from "./events/changes.js";
 import { SseHub } from "./events/sse.js";
 import { eventRoutes } from "./routes/events.js";
 import { projectRoutes } from "./routes/projects.js";
+import { runRoutes } from "./routes/runs.js";
 import { schemaRoutes } from "./routes/schema.js";
 import { taskRoutes } from "./routes/tasks.js";
 
@@ -113,6 +114,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   app.register(projectRoutes, { getDb });
   app.register(schemaRoutes, { getDb });
   app.register(taskRoutes, { getDb });
+  app.register(runRoutes, { getDb });
 
   if (existsSync(staticDir)) {
     app.register(fastifyStatic, {
