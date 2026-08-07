@@ -21,7 +21,7 @@ import { isValidSlug, slugify, uniqueSlug } from "../projects/slug.js";
 import { applyProjectPatch, asObject, type ProjectSettings } from "../projects/validate.js";
 import { parseBooleanFlag } from "../validate.js";
 import { readProjectVersion } from "../projects/version.js";
-import type { Project, ProjectView } from "../../shared/types.js";
+import { PROJECT_TYPES, type Project, type ProjectType, type ProjectView } from "../../shared/types.js";
 
 export interface ProjectRoutesOptions extends FastifyPluginOptions {
   /** Resolved per request so the database opens lazily. */
@@ -121,7 +121,13 @@ export async function projectRoutes(
       throw new ApiError("NAME_REQUIRED", 400, { field: "name" }, "name is required");
     }
 
-    const settings = applyProjectPatch({ ...defaultSettings(), name: "" }, body);
+    // Seed the ask list for the requested type (docs/12 "General"); an
+    // invalid `type` is left to applyProjectPatch's own validation below.
+    const requestedType: ProjectType =
+      typeof body["type"] === "string" && (PROJECT_TYPES as readonly string[]).includes(body["type"])
+        ? (body["type"] as ProjectType)
+        : "generic";
+    const settings = applyProjectPatch({ ...defaultSettings(requestedType), name: "" }, body);
     const now = new Date().toISOString();
     const project: Project = {
       id: randomUUID(),

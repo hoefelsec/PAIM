@@ -8,6 +8,7 @@ import { createApp } from "../../../src/server/app.js";
 import { openDatabase } from "../../../src/server/db/index.js";
 import { clearValidatorCache, getValidator } from "../../../src/server/fields/validator.js";
 import { clearVersionCache } from "../../../src/server/projects/version.js";
+import { seedAskList } from "../../../src/server/safety/askListSeeds.js";
 import { nextTaskKey } from "../../../src/server/tasks/keys.js";
 import { STATUS_CATALOGUE } from "../../../src/shared/statuses.js";
 import type { Project, ProjectView } from "../../../src/shared/types.js";
@@ -94,7 +95,9 @@ describe("POST /api/projects", () => {
 
     expect(project.maxConcurrentRuns).toBe(1);
     expect(project.trashRetentionDays).toBe(30);
-    expect(project.safety).toEqual({ denyList: [], mode: "ask_all", askList: [] });
+    // docs/12 "General": a generic project still gets the base ask list
+    // (the ecosystem-specific seed for its type — see seedAskList tests).
+    expect(project.safety).toEqual({ denyList: [], mode: "ask_all", askList: seedAskList("generic") });
     expect(project.status).toBe("active");
     expect(project.type).toBe("generic");
     expect(project.description).toBe("");
