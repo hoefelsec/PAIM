@@ -109,6 +109,15 @@ function restore(slug: string, ref: string) {
   });
 }
 
+function bulk(slug: string, body: Record<string, unknown>) {
+  return app.inject({
+    method: "POST",
+    url: `/api/projects/${slug}/tasks/bulk`,
+    headers: HEADERS,
+    payload: body,
+  });
+}
+
 /** The stored row, including a trashed one — reads through the API hide it. */
 function storedRow(id: string): { deletedAt: string | null } | undefined {
   return db.prepare("SELECT deletedAt FROM tasks WHERE id = ?").get(id) as
@@ -705,4 +714,96 @@ describe("parentId", () => {
 
     expect(next.parentId).toBeNull();
   });
+});
+
+describe("bulk", () => {
+  it("patches 3 tasks where 1 fails validation", async () => {
+    // Create a project with the epic feature
+    const project = await createProject();
+
+    // Create two plain tasks that will succeed
+    const task1 = await createTask(project.slug, {
+      title: "Task 1",
+      priority: "none",
+    });
+    const task2 = await createTask(project.slug, {
+      title: "Task 2",
+      priority: "none",
+    });
+
+    // Create an epic with one child — patching its size to "M" will fail
+    const epic = await createTask(project.slug, {
+      title: "Epic with child",
+      size: "Epic",
+    });
+    // Create a child task to establish the parent-child relationship
+    void await createTask(project.slug, {
+      title: "Child task",
+      parentId: epic.key,
+    });
+
+    // Bulk patch: size "M" is invalid for an epic with children
+    const res = await bulk(project.slug, {
+      ids: [task1.id, task2.id, epic.id],
+      patch: { size: "M" },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const results = res.json().data as any[];
+
+    expect(results).toHaveLength(3);
+
+    // task1 and task2 succeed
+    expect(results[0]).toMatchObject({
+      id: task1.id,
+      success: true,
+      data: expect.objectContaining({ size: "M" }),
+    });
+    expect(results[1]).toMatchObject({
+      id: task2.id,
+      success: true,
+      data: expect.objectContaining({ size: "M" }),
+    });
+
+    // epic fails validation because it has children
+    expect(results[2]).toMatchObject({
+      id: epic.id,
+      success: false,
+      error: expect.objectContaining({ code: "EPIC_HAS_CHILDREN" }),
+    });
+
+    // Verify that task1 and task2 were actually updated in the database
+    const updated1 = (await read(project.slug, task1.key)).json().data;
+    const updated2 = (await read(project.slug, task2.key)).json().data;
+    const unchangedEpic = (await read(project.slug, epic.key)).json().data;
+
+    expect(updated1.size).toBe("M");
+    expect(updated2.size).toBe("M");
+    // Epic must remain unchanged after the failed bulk patch
+    expect(unchangedEpic.size).toBe("Epic");
+  });
+
+  it("applies the same patch to multiple tasks in one transaction", async () => {
+    const project = await createProject();
+
+    const task1 = await createTask(project.slug, { title: "Task 1", priority: "none" });
+    const task2 = await createTask(project.slug, { title: "Task 2", priority: "none" });
+
+    const res = await bulk(project.slug, {
+      ids: [task1.id, task2.id],
+      patch: { priority: "urgent" },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const results = res.json().data as any[];
+
+    expect(results).toHaveLength(2);
+    results.forEach((result) => {
+      expect(result).toMatchObject({
+        success: true,
+        data: expect.objectContaining({ priority: "urgent" }),
+      });
+    });
+  });
+
 });

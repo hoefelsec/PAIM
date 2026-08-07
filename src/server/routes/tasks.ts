@@ -50,7 +50,7 @@ import {
   computeEpicProgress,
   type EpicProgress,
 } from "../tasks/epics.js";
-import { asObject, parseBooleanFlag } from "../validate.js";
+import { asObject, asStringArray, parseBooleanFlag } from "../validate.js";
 import { requireProject } from "./projects.js";
 import type { Project, Task } from "../../shared/types.js";
 
@@ -340,6 +340,97 @@ export async function taskRoutes(app: FastifyInstance, options: TaskRoutesOption
       };
       updateTask(db, restored);
       return { data: taskView(db, project, restored) };
+    },
+  );
+
+  app.post<{ Params: { project: string } }>(
+    "/api/projects/:project/tasks/bulk",
+    async (req) => {
+      const db = getDb();
+      const project = requireProject(db, req.params.project);
+      const body = asObject(req.body ?? {}, "body");
+      const query = (req.query ?? {}) as Record<string, unknown>;
+      const allowUnknownFields = parseBooleanFlag(query["allowUnknownFields"], "allowUnknownFields");
+
+      const ids = asStringArray(body["ids"] ?? [], "ids");
+      const patch = asObject(body["patch"] ?? {}, "patch");
+
+      // Run all updates in one transaction, collecting per-task results.
+      // Each task update runs in its own SAVEPOINT so schema changes
+      // (from unknown fields) are rolled back if that task's validation fails.
+      const results = db.transaction(() => {
+        return ids.map((id) => {
+          // Wrap each task update in its own SAVEPOINT for isolation.
+          const updateOneTask = db.transaction(() => {
+            const current = getTaskByRef(db, project.id, id);
+            if (!current) {
+              return {
+                id,
+                success: false as const,
+                error: {
+                  code: "TASK_NOT_FOUND",
+                  message: `No task "${id}" in project "${project.slug}"`,
+                },
+              };
+            }
+
+            const core = applyTaskPatch(taskCore(current), patch, { statuses: project.statuses });
+            const write = applyFieldsWrite(
+              db,
+              project,
+              patch["fields"],
+              current.fields,
+              allowUnknownFields,
+            );
+
+            const parentId =
+              "parentId" in patch
+                ? resolveParent(db, project, core.parentId, { requireEpic: true })
+                : current.parentId;
+
+            checkNotNestedEpic(core.size, parentId);
+            checkEpicHasNoChildren(db, current, core.size);
+
+            const next: Task = {
+              ...current,
+              ...core,
+              parentId,
+              kind: kindForSize(core.size),
+              fields: write.fields,
+              updatedAt: nextTimestamp(current.updatedAt),
+            };
+            updateTask(db, next);
+
+            return {
+              id,
+              success: true as const,
+              data: taskView(db, write.project, next),
+              warnings: write.warnings,
+            };
+          });
+
+          try {
+            return updateOneTask();
+          } catch (err) {
+            if (err instanceof ApiError) {
+              return {
+                id,
+                success: false as const,
+                error: {
+                  code: err.code,
+                  message: err.message,
+                  ...(err.details ? { details: err.details } : {}),
+                },
+              };
+            }
+            throw err;
+          }
+        });
+      })();
+
+      return {
+        data: results,
+      };
     },
   );
 }
