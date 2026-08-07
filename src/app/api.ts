@@ -77,6 +77,20 @@ export function apiList<T>(path: string): Promise<ListEnvelope<T>> {
 }
 
 /**
+ * Creates a record and unwraps the one the service answers with (`201`, per
+ * docs/06). Used by src/app/QuickCreate.tsx (T23) — the one write in the
+ * client that is not an edit of an existing row.
+ */
+export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  const envelope = await request<{ data: T }>(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return envelope.data;
+}
+
+/**
  * Writes a partial update and unwraps the record it answers with.
  *
  * `ifMatch` is the `updatedAt` the change was based on. docs/06 "Update

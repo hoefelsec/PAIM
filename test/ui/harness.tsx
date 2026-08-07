@@ -109,6 +109,8 @@ export interface FakeApi {
   calls: string[];
   /** Every write, in order — what an inline edit actually sent. */
   writes: FakeWrite[];
+  /** Every `POST …/tasks` create, in order — what QuickCreate (T23) sent. */
+  creates: { path: string; body: Record<string, unknown> }[];
 }
 
 /** The subset of `?open=`/`?status=` the table and the counters send. */
@@ -150,7 +152,7 @@ export function installApi(options: {
   /** Refuses every write with this error, the way a 4xx of docs/06 reads. */
   rejectWrites?: { status: number; code: string; message?: string };
 }): FakeApi {
-  const api: FakeApi = { calls: [], writes: [] };
+  const api: FakeApi = { calls: [], writes: [], creates: [] };
 
   const json = (status: number, body: unknown): Response =>
     new Response(JSON.stringify(body), {
@@ -212,6 +214,28 @@ export function installApi(options: {
     }
 
     const tasks = /^\/api\/projects\/([^/]+)\/tasks$/.exec(url.pathname);
+    // `POST …/tasks` (T23 QuickCreate): title is the only required field
+    // (docs/06), and the fake mints a task the same shape `makeTask` does.
+    if (tasks?.[1] && method === "POST") {
+      const project = options.projects.find((p) => p.slug === tasks[1]);
+      if (!project) return notFound("PROJECT_NOT_FOUND", `No project "${tasks[1]}"`);
+
+      const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      api.creates.push({ path, body });
+      const title = typeof body["title"] === "string" ? body["title"] : "";
+      if (title.trim() === "") {
+        return json(400, { error: { code: "TITLE_REQUIRED", message: "title is required" } });
+      }
+      if (options.rejectWrites) {
+        const { status, code, message } = options.rejectWrites;
+        return json(status, { error: { code, message: message ?? code } });
+      }
+
+      const created = makeTask({ title, status: project.statuses[0] });
+      options.tasks?.[tasks[1]]?.push(created);
+      return json(201, { data: created });
+    }
+
     if (tasks?.[1]) {
       const project = options.projects.find((p) => p.slug === tasks[1]);
       if (!project) return notFound("PROJECT_NOT_FOUND", `No project "${tasks[1]}"`);

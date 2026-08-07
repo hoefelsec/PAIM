@@ -13,6 +13,7 @@ import { useMemo } from "react";
 import { FacetRail } from "./FacetRail";
 import { parseFilters } from "./facets";
 import { ProjectGrid } from "./ProjectGrid";
+import { QuickCreate } from "./QuickCreate";
 import { Shell } from "./Shell";
 import { TaskTable } from "./TaskTable";
 import { Link, matchPath, useLocation } from "./router";
@@ -45,6 +46,9 @@ export default function App() {
     // two screens are given the same answer.
     return (
       <Shell slug={slug} rail={<FacetRail slug={slug} />}>
+        {/* Interim task creation (T23) — a stopgap for T41's composer;
+            see src/app/QuickCreate.tsx for why this is the whole surface. */}
+        <QuickCreate slug={slug} />
         <TaskTable slug={slug} filters={filters} />
       </Shell>
     );
