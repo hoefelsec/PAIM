@@ -243,8 +243,23 @@ export const IDENTITY_TONES = [
 ] as const;
 export type IdentityTone = (typeof IDENTITY_TONES)[number];
 
-export const toneVar = (tone: IdentityTone) => `var(--color-id-${tone})`;
+/** Written out, like STATUS_VAR: Tailwind keeps a theme variable only when its
+ *  name appears in the scanned source, so a name assembled at run time
+ *  (`--color-id-${tone}`) is dropped from the stylesheet and the tone renders
+ *  as no colour at all. */
+export const TONE_VAR: Record<IdentityTone, string> = {
+  steel: "var(--color-id-steel)",
+  sage: "var(--color-id-sage)",
+  brass: "var(--color-id-brass)",
+  clay: "var(--color-id-clay)",
+  violet: "var(--color-id-violet)",
+  teal: "var(--color-id-teal)",
+  rose: "var(--color-id-rose)",
+  grey: "var(--color-id-grey)",
+};
+
+export const toneVar = (tone: IdentityTone) => TONE_VAR[tone];
 
 /** The tint is the tone at 17%. It is never a bar on the edge of a card. */
 export const toneTint = (tone: IdentityTone) =>
-  `color-mix(in srgb, var(--color-id-${tone}) 17%, transparent)`;
+  `color-mix(in srgb, ${TONE_VAR[tone]} 17%, transparent)`;
