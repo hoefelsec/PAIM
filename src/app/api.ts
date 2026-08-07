@@ -75,3 +75,28 @@ export async function apiGet<T>(path: string): Promise<T> {
 export function apiList<T>(path: string): Promise<ListEnvelope<T>> {
   return request<ListEnvelope<T>>(path);
 }
+
+/**
+ * Writes a partial update and unwraps the record it answers with.
+ *
+ * `ifMatch` is the `updatedAt` the change was based on. docs/06 "Update
+ * semantics": with the header the write is a compare-and-swap and answers
+ * `409 IF_MATCH_FAILED` when the task moved underneath it; without it the
+ * last write wins. An inline edit always sends it — the row on screen is the
+ * version the user edited, and a silent overwrite of someone else's write is
+ * exactly what the interface must not do.
+ */
+export async function apiPatch<T>(
+  path: string,
+  body: unknown,
+  ifMatch?: string | null,
+): Promise<T> {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (ifMatch) headers["if-match"] = ifMatch;
+  const envelope = await request<{ data: T }>(path, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify(body),
+  });
+  return envelope.data;
+}

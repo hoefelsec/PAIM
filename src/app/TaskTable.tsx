@@ -10,19 +10,32 @@
  * src/ui/shapes.tsx, and the name appears only under the pointer. The column
  * head names the dimension, so the row does not repeat it.
  *
+ * Every cell but the key and the timestamp edits in place (docs/07
+ * "Editing"): a click opens a control inside the cell, blur or Enter saves,
+ * Esc cancels, and a refused write flashes the row clay and puts the old
+ * value back. There is no modal form and no Save control. What each column
+ * edits, and what its write says, is in ./edit.ts.
+ *
  * There is no virtualiser. The dependency list of docs/14 does not name one,
  * and it does not need to: every row is memoised on its task, so a project
  * of a thousand tasks pays for its rows once and an expand or a collapse
  * re-renders the handful of rows that changed.
  */
 
-import { Fragment, memo, useCallback, useMemo, useState } from "react";
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SizePill } from "../ui/controls";
 import { PriorityIcon, SizeIcon, StatusRing, TypeIcon } from "../ui/shapes";
 import { SIZE_LABEL, STATUS_LABEL, TASK_TYPES, type TaskType } from "../ui/vocabulary";
+import {
+  columnEditors,
+  isNoop,
+  FLASH_MS,
+  type EditorSpec,
+  type TaskPatch,
+} from "./edit";
 import { activeFilterCount, filterTasks, type Filters } from "./facets";
 import { relativeTime } from "./format";
-import { useProject, useTasks } from "./queries";
+import { useProject, useSaveTask, useTasks } from "./queries";
 import {
   buildTable,
   epicProgress,
@@ -92,21 +105,14 @@ function SizeCell({ size }: { size: TaskView["size"] }) {
   return <SizeIcon size={size} height={11} className="inline-block align-middle" />;
 }
 
-function cellContent(column: Column, task: TaskView, progress: string | null) {
+function cellContent(column: Column, task: TaskView) {
   switch (column.id) {
     case "key":
       return task.key;
     case "title":
-      return (
-        <>
-          <span className="align-middle">{task.title}</span>
-          {progress !== null && (
-            <span className="ml-[9px] align-middle text-id text-tx-muted" data-numeric>
-              {progress}
-            </span>
-          )}
-        </>
-      );
+      // The epic count is not part of the title, so it is not part of what a
+      // click on the title edits: the row prints it beside the editor.
+      return <span className="align-middle">{task.title}</span>;
     case "priority":
       return (
         <PriorityIcon
@@ -132,26 +138,158 @@ function cellContent(column: Column, task: TaskView, progress: string | null) {
 
 const ALIGN = { left: "text-left", center: "text-center", right: "text-right" } as const;
 
+/* ── editing (docs/07 "Editing") ────────────────────────────────────────── */
+
+/**
+ * An editable cell is the click target — the whole cell, not a control inside
+ * it. docs/07 asks for a value on screen that the user clicks, and a table of
+ * a thousand rows cannot answer that with seven buttons per row: it would put
+ * seven thousand stops in the tab order and make every accessible-name query
+ * walk them. The keyboard path to an edit is `E` on the focused row, and the
+ * keyboard map has one owner (docs/07 "Keyboard", T47).
+ */
+const EDITABLE_CELL =
+  "cursor-text transition-colors duration-(--dur-hover-out) " +
+  "hover:bg-overlay hover:duration-(--dur-hover-in)";
+
+const CONTROL =
+  "h-[23px] w-full min-w-0 rounded-[4px] border border-bd-strong bg-raised px-1 " +
+  "text-row text-tx-primary outline-none focus:border-accent";
+
+/**
+ * The open editor. docs/07: "click outside to save" — and Enter saves, Esc
+ * cancels. There is no Save control anywhere, so the editor commits itself.
+ *
+ * A menu commits on choice as well: a native select closes on the choice, and
+ * asking for Enter afterwards would be a Save button spelled differently.
+ */
+function CellEditor({
+  spec,
+  task,
+  onCommit,
+  onCancel,
+}: {
+  spec: EditorSpec;
+  task: TaskView;
+  onCommit: (task: TaskView, spec: EditorSpec, raw: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(() => spec.read(task));
+  const control = useRef<HTMLInputElement | HTMLSelectElement>(null);
+  // Commit and cancel both close the editor. A select commits on change and
+  // then blurs on the way out, so the second call must do nothing.
+  const settled = useRef(false);
+
+  useEffect(() => {
+    control.current?.focus();
+    if (control.current instanceof HTMLInputElement) control.current.select();
+  }, []);
+
+  const commit = (raw: string) => {
+    if (settled.current) return;
+    settled.current = true;
+    onCommit(task, spec, raw);
+  };
+
+  const cancel = () => {
+    if (settled.current) return;
+    settled.current = true;
+    onCancel();
+  };
+
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commit(value);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      cancel();
+    }
+  };
+
+  const label = `${spec.label} of ${task.key}`;
+
+  if (spec.kind === "select") {
+    // A stored value the schema no longer offers still shows (docs/03 rule 2:
+    // a field change never rewrites stored values), so the menu carries it.
+    const options = spec.options.some((option) => option.value === value)
+      ? spec.options
+      : [...spec.options, { value, label: value }];
+
+    return (
+      <select
+        ref={control as React.RefObject<HTMLSelectElement>}
+        aria-label={label}
+        value={value}
+        onChange={(event) => {
+          setValue(event.target.value);
+          commit(event.target.value);
+        }}
+        onKeyDown={onKeyDown}
+        onBlur={() => commit(value)}
+        className={CONTROL}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <input
+      ref={control as React.RefObject<HTMLInputElement>}
+      type="text"
+      // A number field takes the numeric keyboard, not a stepper: the service
+      // is the one that decides whether the text is a number.
+      inputMode={spec.kind === "number" ? "decimal" : undefined}
+      aria-label={label}
+      value={value}
+      onChange={(event) => setValue(event.target.value)}
+      onKeyDown={onKeyDown}
+      onBlur={() => commit(value)}
+      className={CONTROL}
+    />
+  );
+}
+
 /* ── rows ───────────────────────────────────────────────────────────────── */
 
 interface RowProps {
   task: TaskView;
   columns: readonly Column[];
+  /** The editor of each editable column, by column id. Not editable: absent. */
+  editors: ReadonlyMap<string, EditorSpec>;
   /** A child of an open epic: indented, and quieter than its parent. */
   child: boolean;
   /** Epic rows only: whether the children are showing. */
   open?: boolean;
   progress: string | null;
+  /** The column being edited on this row, or null. One cell at a time. */
+  editing: string | null;
+  /** The last write on this row was refused: clay, then back (docs/13). */
+  rejected: boolean;
   onToggle: (id: string) => void;
+  onOpen: (taskId: string, columnId: string) => void;
+  onCommit: (task: TaskView, spec: EditorSpec, raw: string) => void;
+  onCancel: () => void;
 }
 
 const TaskRow = memo(function TaskRow({
   task,
   columns,
+  editors,
   child,
   open,
   progress,
+  editing,
+  rejected,
   onToggle,
+  onOpen,
+  onCommit,
+  onCancel,
 }: RowProps) {
   const isEpic = task.kind === "epic";
 
@@ -160,13 +298,24 @@ const TaskRow = memo(function TaskRow({
       data-task={task.key}
       data-child={child ? "true" : undefined}
       data-epic={isEpic ? "true" : undefined}
+      data-rejected={rejected ? "true" : undefined}
+      // Inline, not a utility: the flash has to beat the hover duration on the
+      // same property, and a token duration in a class cannot promise that.
+      style={rejected ? { transitionDuration: "var(--dur-slow)" } : undefined}
       className={`h-[var(--row-h)] border-b border-bd-subtle transition-colors
                   duration-(--dur-hover-out) hover:bg-raised
-                  hover:duration-(--dur-hover-in) ${isEpic ? "bg-accent/5" : ""}`}
+                  hover:duration-(--dur-hover-in) ${
+                    rejected ? "bg-pr-urgent/25" : isEpic ? "bg-accent/5" : ""
+                  }`}
     >
       {columns.map((column) => {
         const isKey = column.id === "key";
         const isTitle = column.id === "title";
+        const spec = editors.get(column.id);
+        const content = cellContent(column, task);
+        // A click inside an open editor bubbles to the cell; it must not
+        // re-open the editor it came from.
+        const opens = spec !== undefined && editing !== column.id;
         return (
           <td
             key={column.id}
@@ -179,7 +328,12 @@ const TaskRow = memo(function TaskRow({
                       child ? "text-tx-secondary" : "text-tx-primary"
                     } ${isEpic ? "font-medium" : ""}`
                   : "text-prop text-tx-secondary"
-            }`}
+            } ${spec === undefined ? "" : EDITABLE_CELL}`}
+            // Marks the cell as editable without renaming it: a screen reader
+            // must still read the value, not the action. The editor that
+            // opens carries the label.
+            data-edit={spec === undefined ? undefined : column.id}
+            onClick={opens ? () => onOpen(task.id, column.id) : undefined}
             data-numeric={column.id === "updated" || column.align === "right" ? "" : undefined}
           >
             {isKey && isEpic && (
@@ -190,7 +344,16 @@ const TaskRow = memo(function TaskRow({
               />
             )}
             {isKey && child && <ChildGuide />}
-            {cellContent(column, task, progress)}
+            {spec !== undefined && editing === column.id ? (
+              <CellEditor spec={spec} task={task} onCommit={onCommit} onCancel={onCancel} />
+            ) : (
+              content
+            )}
+            {isTitle && progress !== null && (
+              <span className="ml-[9px] align-middle text-id text-tx-muted" data-numeric>
+                {progress}
+              </span>
+            )}
           </td>
         );
       })}
@@ -239,9 +402,29 @@ function GroupRow({
 
 /* ── the table ──────────────────────────────────────────────────────────── */
 
-function Table({ model, columns }: { model: TableModel; columns: Column[] }) {
+/** Which cell is open. One at a time: an edit ends when the next one starts. */
+interface EditingCell {
+  taskId: string;
+  columnId: string;
+}
+
+function Table({
+  model,
+  columns,
+  editors,
+  save,
+}: {
+  model: TableModel;
+  columns: Column[];
+  editors: ReadonlyMap<string, EditorSpec>;
+  /** Writes one edit. It rejects when the service refuses (docs/06). */
+  save: (task: TaskView, patch: TaskPatch) => Promise<unknown>;
+}) {
   const [openEpics, setOpenEpics] = useState<ReadonlySet<string>>(() => new Set());
   const [shutGroups, setShutGroups] = useState<ReadonlySet<Status>>(() => new Set());
+  const [editing, setEditing] = useState<EditingCell | null>(null);
+  /** The rows whose last write was refused — clay for one beat (docs/13). */
+  const [rejected, setRejected] = useState<ReadonlySet<string>>(() => new Set());
 
   // Stable callbacks: a new function on every render would defeat the row
   // memoisation and re-render the whole table on one disclosure click.
@@ -260,6 +443,50 @@ function Table({ model, columns }: { model: TableModel; columns: Column[] }) {
       return next;
     });
   }, []);
+
+  const openEditor = useCallback((taskId: string, columnId: string) => {
+    setEditing({ taskId, columnId });
+  }, []);
+
+  const cancelEdit = useCallback(() => setEditing(null), []);
+
+  const flash = useCallback((id: string) => {
+    setRejected((current) => new Set(current).add(id));
+    window.setTimeout(() => {
+      setRejected((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+    }, FLASH_MS);
+  }, []);
+
+  const commit = useCallback(
+    (task: TaskView, spec: EditorSpec, raw: string) => {
+      // The editor closes on commit, not on the answer: docs/07 shows the
+      // change at once, and a control that lingers is a Save button waiting.
+      setEditing(null);
+      if (isNoop(spec, task, raw)) return;
+      // The rejection is the flash; the value itself is put back by the
+      // mutation, which holds the row as it was before the guess.
+      void save(task, spec.patch(raw)).catch(() => flash(task.id));
+    },
+    [save, flash],
+  );
+
+  /** The column open on one row, or null. A row is only told about itself. */
+  const editingOn = (taskId: string) =>
+    editing !== null && editing.taskId === taskId ? editing.columnId : null;
+
+  // Every value here is stable, so spreading it does not defeat the memo.
+  const shared = {
+    columns,
+    editors,
+    onToggle: toggleEpic,
+    onOpen: openEditor,
+    onCommit: commit,
+    onCancel: cancelEdit,
+  };
 
   return (
     <table className="w-full border-collapse text-row">
@@ -304,10 +531,11 @@ function Table({ model, columns }: { model: TableModel; columns: Column[] }) {
                       <TaskRow
                         key={task.id}
                         task={task}
-                        columns={columns}
                         child={false}
                         progress={null}
-                        onToggle={toggleEpic}
+                        editing={editingOn(task.id)}
+                        rejected={rejected.has(task.id)}
+                        {...shared}
                       />
                     );
                   }
@@ -318,20 +546,22 @@ function Table({ model, columns }: { model: TableModel; columns: Column[] }) {
                     <Fragment key={task.id}>
                       <TaskRow
                         task={task}
-                        columns={columns}
                         child={false}
                         open={expanded}
                         progress={epicProgressText(epicProgress(task, model.childrenOf))}
-                        onToggle={toggleEpic}
+                        editing={editingOn(task.id)}
+                        rejected={rejected.has(task.id)}
+                        {...shared}
                       />
                       {children.map((kid) => (
                         <TaskRow
                           key={kid.id}
                           task={kid}
-                          columns={columns}
                           child
                           progress={null}
-                          onToggle={toggleEpic}
+                          editing={editingOn(kid.id)}
+                          rejected={rejected.has(kid.id)}
+                          {...shared}
                         />
                       ))}
                     </Fragment>
@@ -363,6 +593,25 @@ export function TaskTable({ slug, filters = {} }: { slug: string; filters?: Filt
     [project.data?.fieldSchema],
   );
 
+  // One editor per column, not per cell: the menu of a select comes from the
+  // schema, so a thousand rows share it.
+  const editors = useMemo(
+    () => columnEditors(columns, project.data?.fieldSchema ?? []),
+    [columns, project.data?.fieldSchema],
+  );
+
+  // The mutation object is new on every render; the rows are not allowed to
+  // be. One stable callback in front of it keeps the memo intact.
+  const mutation = useSaveTask(slug);
+  const latest = useRef(mutation);
+  useEffect(() => {
+    latest.current = mutation;
+  });
+  const save = useCallback(
+    (task: TaskView, patch: TaskPatch) => latest.current.mutateAsync({ task, patch }),
+    [],
+  );
+
   const model = useMemo(
     () =>
       buildTable(
@@ -392,5 +641,5 @@ export function TaskTable({ slug, filters = {} }: { slug: string; filters?: Filt
     );
   }
 
-  return <Table model={model} columns={columns} />;
+  return <Table model={model} columns={columns} editors={editors} save={save} />;
 }

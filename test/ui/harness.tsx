@@ -96,9 +96,19 @@ export function makeTask(overrides: Partial<TaskView> = {}): TaskView {
   };
 }
 
+/** One write the client sent, as the fake service received it. */
+export interface FakeWrite {
+  path: string;
+  method: string;
+  body: Record<string, unknown>;
+  ifMatch: string | null;
+}
+
 export interface FakeApi {
   /** Every path the client asked for, in order. */
   calls: string[];
+  /** Every write, in order — what an inline edit actually sent. */
+  writes: FakeWrite[];
 }
 
 /** The subset of `?open=`/`?status=` the table and the counters send. */
@@ -112,13 +122,35 @@ function selectTasks(tasks: readonly TaskView[], params: URLSearchParams): TaskV
   });
 }
 
+/**
+ * A write to one task, the way src/server/routes/tasks.ts applies it: a
+ * shallow merge on the core, a shallow merge on `fields`, `kind` derived from
+ * the size, and a fresh `updatedAt`.
+ *
+ * The stored object is mutated in place, so a test that holds a seeded task
+ * sees the write — and can stage one of its own to provoke an If-Match
+ * conflict.
+ */
+function applyWrite(task: TaskView, body: Record<string, unknown>): TaskView {
+  const { fields, ...core } = body as Record<string, unknown> & {
+    fields?: Record<string, unknown>;
+  };
+  Object.assign(task, core);
+  if (fields) task.fields = { ...task.fields, ...fields };
+  if (typeof core["size"] === "string") task.kind = core["size"] === "Epic" ? "epic" : "task";
+  task.updatedAt = new Date(Date.parse(task.updatedAt) + 1000).toISOString();
+  return task;
+}
+
 export function installApi(options: {
   projects: ProjectView[];
   counts?: Record<string, Counts>;
   /** Tasks per project slug. A slug with tasks answers `counts` from them. */
   tasks?: Record<string, TaskView[]>;
+  /** Refuses every write with this error, the way a 4xx of docs/06 reads. */
+  rejectWrites?: { status: number; code: string; message?: string };
 }): FakeApi {
-  const api: FakeApi = { calls: [] };
+  const api: FakeApi = { calls: [], writes: [] };
 
   const json = (status: number, body: unknown): Response =>
     new Response(JSON.stringify(body), {
@@ -128,11 +160,43 @@ export function installApi(options: {
 
   const notFound = (code: string, message: string) => json(404, { error: { code, message } });
 
-  vi.stubGlobal("fetch", async (input: RequestInfo | URL): Promise<Response> => {
+  vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const path = typeof input === "string" ? input : input.toString();
     api.calls.push(path);
     const url = new URL(path, "http://127.0.0.1:4400");
     const params = url.searchParams;
+    const method = (init?.method ?? "GET").toUpperCase();
+
+    // One task: `POST|PATCH …/tasks/:key` is the inline edit of docs/07.
+    const write = /^\/api\/projects\/([^/]+)\/tasks\/([^/]+)$/.exec(url.pathname);
+    if (write?.[1] && write[2] && (method === "PATCH" || method === "POST")) {
+      const headers = new Headers(init?.headers ?? {});
+      const ifMatch = headers.get("if-match");
+      const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      api.writes.push({ path, method, body, ifMatch });
+
+      const ref = decodeURIComponent(write[2]);
+      const task = (options.tasks?.[write[1]] ?? []).find(
+        (row) => row.key === ref || row.id === ref,
+      );
+      if (!task) return notFound("TASK_NOT_FOUND", `No task "${ref}"`);
+
+      if (options.rejectWrites) {
+        const { status, code, message } = options.rejectWrites;
+        return json(status, { error: { code, message: message ?? code } });
+      }
+      // docs/06 "Update semantics": `If-Match` makes the write a
+      // compare-and-swap; a stale value is 409 IF_MATCH_FAILED.
+      if (ifMatch !== null && ifMatch !== task.updatedAt) {
+        return json(409, {
+          error: {
+            code: "IF_MATCH_FAILED",
+            message: "The task changed since the version this write was based on",
+          },
+        });
+      }
+      return json(200, { data: { ...applyWrite(task, body) } });
+    }
 
     if (url.pathname === "/api/projects") {
       const filter = params.get("status") ?? "active";

@@ -5,8 +5,15 @@
  * only do that if there is one list of them.
  */
 
-import { QueryClient, useQuery, type UseQueryResult } from "@tanstack/react-query";
-import { apiGet, apiList, type ListEnvelope } from "./api";
+import {
+  QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseQueryResult,
+} from "@tanstack/react-query";
+import { apiGet, apiList, apiPatch, type ListEnvelope } from "./api";
+import { mergeTask, type TaskPatch } from "./edit";
 import type { TaskView } from "./table";
 import type { ProjectView } from "../shared/types.js";
 
@@ -96,6 +103,78 @@ export function useTasks(slug: string): UseQueryResult<TaskView[]> {
   return useQuery({
     queryKey: queryKeys.tasks(slug),
     queryFn: () => fetchAllTasks(slug),
+  });
+}
+
+/* ── writes ─────────────────────────────────────────────────────────────── */
+
+/** One inline edit: the row the user was looking at, and the write it makes. */
+export interface SaveTaskVars {
+  task: TaskView;
+  patch: TaskPatch;
+}
+
+/** The list as it was before the optimistic change — what a refusal restores. */
+interface SaveContext {
+  previous: TaskView[] | undefined;
+}
+
+/** Replaces one task in the cached list, leaving the order alone. */
+function replaceTask(rows: TaskView[] | undefined, id: string, next: (row: TaskView) => TaskView) {
+  return rows?.map((row) => (row.id === id ? next(row) : row));
+}
+
+/**
+ * Saves an inline edit (docs/07 "Editing").
+ *
+ * Optimistic: the cached list carries the new value before the request
+ * leaves, so the cell never shows a stale value while a loopback round trip
+ * completes. Then one of two things happens.
+ *
+ * - The service answers: the record it returns replaces the guess, timestamp
+ *   included. That is the reconcile — the service, not the client, decides
+ *   what the task now is.
+ * - The service refuses: the snapshot taken before the change goes back, and
+ *   the caller flashes the row (docs/13 "Motion").
+ *
+ * The mutation does not invalidate the list. A refetch of every row after
+ * every keystroke-sized write is a waste on a loopback service, and the
+ * events stream (T22) is what keeps the table current when another writer
+ * moves the same task.
+ */
+export function useSaveTask(slug: string) {
+  const client = useQueryClient();
+  const key = queryKeys.tasks(slug);
+
+  return useMutation<TaskView, Error, SaveTaskVars, SaveContext>({
+    mutationFn: ({ task, patch }) =>
+      apiPatch<TaskView>(
+        `/api/projects/${encodeURIComponent(slug)}/tasks/${encodeURIComponent(task.key)}`,
+        patch,
+        task.updatedAt,
+      ),
+
+    onMutate: async ({ task, patch }) => {
+      // A read in flight would land after the optimistic write and undo it.
+      await client.cancelQueries({ queryKey: key });
+      const previous = client.getQueryData<TaskView[]>(key);
+      client.setQueryData<TaskView[]>(key, (rows) =>
+        replaceTask(rows, task.id, (row) => mergeTask(row, patch)),
+      );
+      return { previous };
+    },
+
+    onError: (_error, _vars, context) => {
+      if (context?.previous) client.setQueryData<TaskView[]>(key, context.previous);
+    },
+
+    onSuccess: (record) => {
+      client.setQueryData<TaskView[]>(key, (rows) =>
+        // Spread over the row: the list endpoint computes an epic's progress
+        // (docs/02) and a single-task answer that omits it must not erase it.
+        replaceTask(rows, record.id, (row) => ({ ...row, ...record })),
+      );
+    },
   });
 }
 
