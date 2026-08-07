@@ -20,6 +20,7 @@ import { Fragment, memo, useCallback, useMemo, useState } from "react";
 import { SizePill } from "../ui/controls";
 import { PriorityIcon, SizeIcon, StatusRing, TypeIcon } from "../ui/shapes";
 import { SIZE_LABEL, STATUS_LABEL, TASK_TYPES, type TaskType } from "../ui/vocabulary";
+import { activeFilterCount, filterTasks, type Filters } from "./facets";
 import { relativeTime } from "./format";
 import { useProject, useTasks } from "./queries";
 import {
@@ -347,8 +348,13 @@ function Table({ model, columns }: { model: TableModel; columns: Column[] }) {
 /**
  * `/p/:project`. The shell has already read the project, so this screen only
  * reads the tasks; the project comes back from the query cache.
+ *
+ * `filters` is the state of the rail. It lives in the query string (docs/07
+ * "Saved views"), the route reads it there and hands it down, and the table
+ * never holds a copy — that is what makes a filtered list a link and Back the
+ * undo. No filters is the whole project.
  */
-export function TaskTable({ slug }: { slug: string }) {
+export function TaskTable({ slug, filters = {} }: { slug: string; filters?: Filters }) {
   const project = useProject(slug);
   const tasks = useTasks(slug);
 
@@ -358,8 +364,12 @@ export function TaskTable({ slug }: { slug: string }) {
   );
 
   const model = useMemo(
-    () => buildTable(tasks.data ?? [], project.data?.statuses ?? []),
-    [tasks.data, project.data?.statuses],
+    () =>
+      buildTable(
+        filterTasks(tasks.data ?? [], filters, project.data?.fieldSchema ?? []),
+        project.data?.statuses ?? [],
+      ),
+    [tasks.data, filters, project.data?.fieldSchema, project.data?.statuses],
   );
 
   if (tasks.isPending) {
@@ -373,7 +383,13 @@ export function TaskTable({ slug }: { slug: string }) {
     );
   }
   if (model.total === 0) {
-    return <p className="p-6 text-prop text-tx-muted">No tasks in this project yet.</p>;
+    return (
+      <p className="p-6 text-prop text-tx-muted">
+        {activeFilterCount(filters) > 0
+          ? "No tasks match these filters."
+          : "No tasks in this project yet."}
+      </p>
+    );
   }
 
   return <Table model={model} columns={columns} />;

@@ -8,6 +8,10 @@
  * switcher stays reachable.
  */
 
+import { useMemo } from "react";
+
+import { FacetRail } from "./FacetRail";
+import { parseFilters } from "./facets";
 import { ProjectGrid } from "./ProjectGrid";
 import { Shell } from "./Shell";
 import { TaskTable } from "./TaskTable";
@@ -25,17 +29,23 @@ function NotFound({ pathname }: { pathname: string }) {
 }
 
 export default function App() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  // Memoised: a fresh object on every render would rebuild the table model
+  // for a thousand rows each time the shell re-rendered.
+  const filters = useMemo(() => parseFilters(search), [search]);
 
   if (matchPath("/", pathname)) return <ProjectGrid />;
 
   const workspace = matchPath("/p/:project", pathname);
   if (workspace?.["project"]) {
     const slug = workspace["project"];
-    // The table is the only view (docs/07): the workspace address is it.
+    // The table is the only view (docs/07): the workspace address is it, and
+    // the rail beside it holds the facets that filter it. The filter state is
+    // the query string and nothing else, so the route reads it here and the
+    // two screens are given the same answer.
     return (
-      <Shell slug={slug}>
-        <TaskTable slug={slug} />
+      <Shell slug={slug} rail={<FacetRail slug={slug} />}>
+        <TaskTable slug={slug} filters={filters} />
       </Shell>
     );
   }

@@ -66,8 +66,20 @@ function ShellMessage({ title, detail }: { title: string; detail?: string }) {
 /**
  * `/p/:project`. The workspace scopes everything below it, so the shell reads
  * the project first and renders nothing else until it has one.
+ *
+ * `rail` is what this screen puts in the rail slot — facets on the table, a
+ * file tree in docs, a back link on the task view. The shell does not choose:
+ * the screen does (docs/07 "The left rail").
  */
-export function Shell({ slug, children }: { slug: string; children?: ReactNode }) {
+export function Shell({
+  slug,
+  rail,
+  children,
+}: {
+  slug: string;
+  rail?: ReactNode;
+  children?: ReactNode;
+}) {
   const project = useProject(slug);
 
   if (project.isPending) {
@@ -96,9 +108,9 @@ export function Shell({ slug, children }: { slug: string; children?: ReactNode }
       rail={
         <>
           <WorkspaceSwitcher project={project.data} />
-          {/* The facet rail fills this slot; it is generated from the
-              project's schema and belongs to its own work. */}
-          <div data-slot="rail" className="min-h-0 flex-1 overflow-y-auto" />
+          <div data-slot="rail" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {rail}
+          </div>
         </>
       }
     >
