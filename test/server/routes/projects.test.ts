@@ -55,15 +55,16 @@ async function read(slug: string) {
 }
 
 /**
- * The tasks table arrives with a later task; DELETE only needs to count
- * rows, so the delete tests stand up the two columns it reads.
+ * A minimal, valid row in the real `tasks` table (T10) — enough for DELETE's
+ * task count and cascade to exercise against, without depending on the
+ * create/read work of a later task.
  */
-function createTasksTable(): void {
-  db.exec("CREATE TABLE tasks (id TEXT PRIMARY KEY, projectId TEXT NOT NULL)");
-}
-
 function seedTask(projectId: string, id: string): void {
-  db.prepare("INSERT INTO tasks (id, projectId) VALUES (?, ?)").run(id, projectId);
+  const now = new Date().toISOString();
+  db.prepare(
+    `INSERT INTO tasks (id, key, projectId, title, status, size, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, `TASK-${id}`, projectId, "Seed task", "backlog", "S", now, now);
 }
 
 describe("the projects migration", () => {
@@ -618,7 +619,6 @@ describe("DELETE /api/projects/:project", () => {
 
   it("refuses a project with tasks and names the count", async () => {
     const project = await createProject({ name: "PAIM" });
-    createTasksTable();
     seedTask(project.id, "t1");
     seedTask(project.id, "t2");
 
@@ -634,7 +634,6 @@ describe("DELETE /api/projects/:project", () => {
 
   it("deletes a project with tasks when force=true", async () => {
     const project = await createProject({ name: "PAIM" });
-    createTasksTable();
     seedTask(project.id, "t1");
 
     const res = await del("paim", "?force=true");
@@ -648,7 +647,6 @@ describe("DELETE /api/projects/:project", () => {
   it("leaves other projects' tasks alone", async () => {
     const keep = await createProject({ name: "Keep" });
     await createProject({ name: "Drop" });
-    createTasksTable();
     seedTask(keep.id, "t1");
 
     await del("drop", "?force=true");

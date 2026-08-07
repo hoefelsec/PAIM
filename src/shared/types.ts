@@ -80,6 +80,88 @@ export type { FieldDef };
  */
 export type TestDef = Record<string, unknown>;
 
+/** docs/02 "Task": five levels, `none` is the default. */
+export const TASK_PRIORITIES = ["none", "low", "medium", "high", "urgent"] as const;
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+
+/** docs/02 "Size": six values; `Epic` is the one that makes a task an epic. */
+export const TASK_SIZES = ["XS", "S", "M", "L", "XL", "Epic"] as const;
+export type TaskSize = (typeof TASK_SIZES)[number];
+
+/** docs/02 "Epic": `kind` is derived from `size === 'Epic'`, never written directly. */
+export const TASK_KINDS = ["task", "epic"] as const;
+export type TaskKind = (typeof TASK_KINDS)[number];
+
+/** docs/02 "Task" `staleReason`. */
+export const STALE_REASONS = ["time", "dependency", "answers", "project_change"] as const;
+export type StaleReason = (typeof STALE_REASONS)[number];
+
+/**
+ * A dependency question, a design option, a test run, and a review
+ * (docs/02 `questions`, `designOptions`, `tests`, `reviews`). Their shapes
+ * belong to the status-pipeline and testing-gate work; here they are only
+ * JSON payloads a task carries.
+ */
+export type Question = Record<string, unknown>;
+export type DesignOption = Record<string, unknown>;
+export type TestRun = Record<string, unknown>;
+export type Review = Record<string, unknown>;
+
+/**
+ * A task's schedule (docs/09 "Schedules"). Its shape belongs to the
+ * schedules work; here it is only a JSON payload a task carries.
+ */
+export type Schedule = Record<string, unknown>;
+
+/**
+ * A task as stored and as returned by the API (docs/02 "Task"). Key
+ * generation (the type-prefix counter) is T11's work; epic invariants,
+ * status gates, dependencies, and staleness triggers belong to later specs
+ * — this type only describes the record they read and write.
+ */
+export interface Task {
+  id: string;
+  /** The type prefix plus a per-project counter (docs/02 "Task keys"); permanent. */
+  key: string;
+  projectId: string;
+  title: string;
+  description: string;
+  status: Status;
+  priority: TaskPriority;
+  size: TaskSize;
+  kind: TaskKind;
+  labels: string[];
+  assignee: string | null;
+  /** The epic that contains this task, or null. */
+  parentId: string | null;
+  /** Manual sort position. */
+  order: number;
+  /** Values for the project's custom fields (docs/03). */
+  fields: Record<string, unknown>;
+  /** null means the service selects it (docs/11). */
+  model: string | null;
+  effort: Effort | null;
+  /** null means the project's policy applies (docs/02). */
+  safety: SafetyPolicy | null;
+  /** Epics only; children pass manual_review (docs/09). */
+  childManualReview: boolean | null;
+  schedule: Schedule | null;
+  dependsOn: string[];
+  questions: Question[];
+  designOptions: DesignOption[];
+  tests: TestRun[];
+  reviews: Review[];
+  /** The original text from the user (docs/05). */
+  sourcePrompt: string;
+  evaluatedAt: string | null;
+  staleReason: StaleReason | null;
+  /** Soft delete (docs/06 "The trash"); null means the task is not trashed. */
+  deletedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  closedAt: string | null;
+}
+
 /**
  * A project as stored and as returned by the API. `version` is deliberately
  * absent: docs/02 reads it from the workspace and never stores it.
