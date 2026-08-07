@@ -18,6 +18,7 @@ import { invalidateValidator } from "../fields/validator.js";
 import { defaultSettings } from "../projects/defaults.js";
 import { isValidSlug, slugify, uniqueSlug } from "../projects/slug.js";
 import { applyProjectPatch, asObject, type ProjectSettings } from "../projects/validate.js";
+import { parseBooleanFlag } from "../validate.js";
 import { readProjectVersion } from "../projects/version.js";
 import type { Project, ProjectView } from "../../shared/types.js";
 
@@ -40,13 +41,6 @@ function parseStatusFilter(value: unknown): ProjectStatusFilter {
     { field: "status", allowed: ["active", "archived", "all"] },
     "status must be one of active, archived, all",
   );
-}
-
-function parseBooleanFlag(value: unknown, field: string): boolean {
-  if (value === undefined) return false;
-  if (value === "true" || value === true) return true;
-  if (value === "false" || value === false) return false;
-  throw new ApiError("VALIDATION_FAILED", 400, { field }, `${field} must be true or false`);
 }
 
 /** docs/02: `version` is read from the workspace on every read, never stored. */

@@ -207,5 +207,10 @@ export function countProjectTasks(db: Database.Database, projectId: string): num
 /** Removes a project's tasks along with the project (`?force=true`). */
 export function deleteProjectTasks(db: Database.Database, projectId: string): void {
   if (!tableExists(db, "tasks")) return;
+  // `parentId` is a foreign key onto `tasks` itself, and the constraint is
+  // checked row by row: a child still pointing at an epic deleted earlier in
+  // the sweep would abort it. Detaching the children first makes the order
+  // of the delete irrelevant.
+  db.prepare("UPDATE tasks SET parentId = NULL WHERE projectId = ?").run(projectId);
   db.prepare("DELETE FROM tasks WHERE projectId = ?").run(projectId);
 }

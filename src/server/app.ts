@@ -9,6 +9,7 @@ import { PORT } from "./config.js";
 import { openDatabase } from "./db/index.js";
 import { projectRoutes } from "./routes/projects.js";
 import { schemaRoutes } from "./routes/schema.js";
+import { taskRoutes } from "./routes/tasks.js";
 
 const pkgPath = fileURLToPath(new URL("../../package.json", import.meta.url));
 const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { version: string };
@@ -74,6 +75,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
 
   app.register(projectRoutes, { getDb });
   app.register(schemaRoutes, { getDb });
+  app.register(taskRoutes, { getDb });
 
   if (existsSync(staticDir)) {
     app.register(fastifyStatic, {

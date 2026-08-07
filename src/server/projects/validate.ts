@@ -1,6 +1,21 @@
 import { ApiError } from "../errors.js";
 import { parseFieldSchema } from "../fields/schema.js";
 import {
+  asBoolean,
+  asEnum,
+  asInteger,
+  asNonEmptyString,
+  asNullableEnum,
+  asNullableInteger,
+  asNullableString,
+  asObject,
+  asObjectArray,
+  asString,
+  asStringArray,
+  readOnlyProperty,
+  unknownProperty,
+} from "../validate.js";
+import {
   REQUIRED_STATUSES,
   isStatus,
   sortByCatalogue,
@@ -57,79 +72,8 @@ const WRITABLE_PROPERTIES = new Set([
   "trashRetentionDays",
 ]);
 
-function invalid(field: string, message: string, extra?: Record<string, unknown>): never {
-  throw new ApiError("VALIDATION_FAILED", 400, { field, ...extra }, `${field}: ${message}`);
-}
-
-export function asObject(value: unknown, field: string): Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    invalid(field, "must be an object");
-  }
-  return value as Record<string, unknown>;
-}
-
-function asString(value: unknown, field: string): string {
-  if (typeof value !== "string") invalid(field, "must be a string");
-  return value;
-}
-
-function asNonEmptyString(value: unknown, field: string): string {
-  const s = asString(value, field).trim();
-  if (s.length === 0) invalid(field, "must not be empty");
-  return s;
-}
-
-/** A string, or null — `null` clears an optional value. */
-function asNullableString(value: unknown, field: string): string | null {
-  if (value === null) return null;
-  const s = asString(value, field).trim();
-  return s.length === 0 ? null : s;
-}
-
-function asBoolean(value: unknown, field: string): boolean {
-  if (typeof value !== "boolean") invalid(field, "must be a boolean");
-  return value;
-}
-
-function asInteger(value: unknown, field: string, min: number): number {
-  if (typeof value !== "number" || !Number.isInteger(value)) {
-    invalid(field, "must be an integer");
-  }
-  if (value < min) invalid(field, `must be at least ${min}`);
-  return value;
-}
-
-function asNullableInteger(value: unknown, field: string, min: number): number | null {
-  if (value === null) return null;
-  return asInteger(value, field, min);
-}
-
-function asEnum<T extends string>(value: unknown, allowed: readonly T[], field: string): T {
-  const s = asString(value, field);
-  if (!(allowed as readonly string[]).includes(s)) {
-    invalid(field, `must be one of ${allowed.join(", ")}`, { allowed, value: s });
-  }
-  return s as T;
-}
-
-function asNullableEnum<T extends string>(
-  value: unknown,
-  allowed: readonly T[],
-  field: string,
-): T | null {
-  if (value === null) return null;
-  return asEnum(value, allowed, field);
-}
-
-function asStringArray(value: unknown, field: string): string[] {
-  if (!Array.isArray(value)) invalid(field, "must be an array of strings");
-  return value.map((entry, i) => asNonEmptyString(entry, `${field}[${i}]`));
-}
-
-function asObjectArray(value: unknown, field: string): Record<string, unknown>[] {
-  if (!Array.isArray(value)) invalid(field, "must be an array of objects");
-  return value.map((entry, i) => asObject(entry, `${field}[${i}]`));
-}
+/** Re-exported so the project routes keep one import for their body parsing. */
+export { asObject };
 
 /**
  * Validates the `statuses` field: a subset of the docs/04 catalogue that
@@ -259,10 +203,6 @@ function mergeCaps(current: UsageCaps, value: unknown): UsageCaps {
   return next;
 }
 
-function unknownProperty(field: string): never {
-  throw new ApiError("UNKNOWN_PROPERTY", 400, { field }, `Unknown property "${field}"`);
-}
-
 /**
  * Applies a partial write on top of `base` (the documented defaults on
  * create, the stored project on update) and returns the validated result.
@@ -288,14 +228,7 @@ export function applyProjectPatch(base: ProjectSettings, body: unknown): Project
     // it is immutable (422 SLUG_IMMUTABLE).
     if (key === "slug") continue;
 
-    if (READ_ONLY_PROPERTIES.has(key)) {
-      throw new ApiError(
-        "READ_ONLY_PROPERTY",
-        400,
-        { field: key },
-        `"${key}" is set by the service and cannot be written`,
-      );
-    }
+    if (READ_ONLY_PROPERTIES.has(key)) readOnlyProperty(key);
     if (!WRITABLE_PROPERTIES.has(key)) unknownProperty(key);
 
     const value = patch[key];
