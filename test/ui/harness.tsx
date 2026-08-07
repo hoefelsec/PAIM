@@ -251,6 +251,50 @@ export function installApi(options: {
   return api;
 }
 
+/**
+ * A stand-in for the browser's `EventSource` (jsdom has none), for the live
+ * updates of T22 (specs/06-events.md). Each instance is recorded on
+ * {@link MockEventSource.instances} so a test can reach the one the hook
+ * opened and drive it directly: `.emit(event)` for a frame, `.open()` /
+ * `.error()` for the connection state a real stream would report.
+ */
+export class MockEventSource {
+  static instances: MockEventSource[] = [];
+
+  onopen: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  onmessage: ((event: { data: string }) => void) | null = null;
+  closed = false;
+
+  constructor(public readonly url: string) {
+    MockEventSource.instances.push(this);
+  }
+
+  close(): void {
+    this.closed = true;
+  }
+
+  open(): void {
+    this.onopen?.();
+  }
+
+  error(): void {
+    this.onerror?.();
+  }
+
+  emit(payload: unknown): void {
+    this.onmessage?.({ data: JSON.stringify(payload) });
+  }
+}
+
+/** Installs {@link MockEventSource} as `window.EventSource` and clears the
+ *  instance list, so each test starts from a clean slate. */
+export function installEventSource(): typeof MockEventSource {
+  MockEventSource.instances = [];
+  vi.stubGlobal("EventSource", MockEventSource);
+  return MockEventSource;
+}
+
 export function Providers({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={createQueryClient()}>{children}</QueryClientProvider>;
 }

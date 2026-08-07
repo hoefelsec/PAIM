@@ -14,13 +14,21 @@
  */
 
 import type { ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "./api";
+import { LiveIndicator, useLiveEvents, type LiveState } from "./events";
 import { useProject } from "./queries";
 import { Link } from "./router";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
-/** The dock is on every screen, at one collapsed row, until runs exist. */
-function Dock() {
+/**
+ * The dock is on every screen, at one collapsed row, until runs exist. The
+ * `live` indicator rides along on the right (specs/06-events.md T22,
+ * docs/07 "toolbar") — the toolbar itself belongs to the table screen and
+ * ships piece by piece with later tasks, but the connection state is
+ * app-wide, so it lives on the one bar every screen already has.
+ */
+function Dock({ live }: { live: LiveState }) {
   return (
     <div
       data-slot="dock"
@@ -30,11 +38,20 @@ function Dock() {
     >
       <span aria-hidden="true">▴</span>
       <span className="font-mono uppercase">Activity</span>
+      <LiveIndicator state={live} />
     </div>
   );
 }
 
-function ShellFrame({ rail, children }: { rail?: ReactNode; children: ReactNode }) {
+function ShellFrame({
+  rail,
+  children,
+  live,
+}: {
+  rail?: ReactNode;
+  children: ReactNode;
+  live: LiveState;
+}) {
   return (
     <div className="flex h-dvh flex-col bg-base">
       <div className="grid min-h-0 flex-1 grid-cols-[var(--rail-w)_1fr]">
@@ -45,7 +62,7 @@ function ShellFrame({ rail, children }: { rail?: ReactNode; children: ReactNode 
           {children}
         </main>
       </div>
-      <Dock />
+      <Dock live={live} />
     </div>
   );
 }
@@ -81,10 +98,14 @@ export function Shell({
   children?: ReactNode;
 }) {
   const project = useProject(slug);
+  // One subscription for the whole workspace — every screen this shell
+  // wraps shares it (specs/06-events.md T22).
+  const client = useQueryClient();
+  const live = useLiveEvents(client);
 
   if (project.isPending) {
     return (
-      <ShellFrame>
+      <ShellFrame live={live}>
         <p className="p-6 text-prop text-tx-muted">Loading…</p>
       </ShellFrame>
     );
@@ -94,7 +115,7 @@ export function Shell({
     const error = project.error;
     const missing = error instanceof ApiError && error.code === "PROJECT_NOT_FOUND";
     return (
-      <ShellFrame>
+      <ShellFrame live={live}>
         <ShellMessage
           title={missing ? `No project “${slug}”` : "The project could not be read"}
           detail={missing ? undefined : (error as Error).message}
@@ -105,6 +126,7 @@ export function Shell({
 
   return (
     <ShellFrame
+      live={live}
       rail={
         <>
           <WorkspaceSwitcher project={project.data} />
