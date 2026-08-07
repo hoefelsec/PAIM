@@ -224,6 +224,60 @@ export function hardDeleteTask(db: Database.Database, id: string): void {
   db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
 }
 
+/**
+ * Every trashed task of a project, newest deletion first — `GET .../trash`
+ * (docs/06 "The trash").
+ */
+export function listTrashedTasks(db: Database.Database, projectId: string): Task[] {
+  const rows = db
+    .prepare(
+      "SELECT * FROM tasks WHERE projectId = ? AND deletedAt IS NOT NULL ORDER BY deletedAt DESC",
+    )
+    .all(projectId) as TaskRow[];
+  return rows.map(rowToTask);
+}
+
+/**
+ * Purges every trashed task whose project's `trashRetentionDays` has
+ * elapsed since `deletedAt` (docs/06 "The trash": "a sweep on startup and
+ * every 24 h purges rows older than the project's `trashRetentionDays`").
+ * `now` is a parameter so a test can drive it without mocking the system
+ * clock. Returns the number of rows purged.
+ */
+export function sweepTrash(db: Database.Database, now: string = new Date().toISOString()): number {
+  const rows = db
+    .prepare(
+      `SELECT tasks.id AS id, tasks.deletedAt AS deletedAt,
+              projects.trashRetentionDays AS retentionDays
+       FROM tasks JOIN projects ON projects.id = tasks.projectId
+       WHERE tasks.deletedAt IS NOT NULL`,
+    )
+    .all() as { id: string; deletedAt: string; retentionDays: number }[];
+
+  const nowMs = Date.parse(now);
+  const expiredIds = rows
+    .filter((row) => {
+      const deadline = Date.parse(row.deletedAt) + row.retentionDays * 24 * 60 * 60 * 1000;
+      return nowMs >= deadline;
+    })
+    .map((row) => row.id);
+
+  if (expiredIds.length === 0) return 0;
+
+  const placeholders = expiredIds.map(() => "?").join(", ");
+  const sweep = db.transaction((): void => {
+    // A purged epic's children still name it as `parentId`; the foreign key
+    // is checked row by row, so a child pointing at a row purged earlier in
+    // this same sweep would abort it (mirrors deleteProjectTasks).
+    db.prepare(`UPDATE tasks SET parentId = NULL WHERE parentId IN (${placeholders})`).run(
+      ...expiredIds,
+    );
+    db.prepare(`DELETE FROM tasks WHERE id IN (${placeholders})`).run(...expiredIds);
+  });
+  sweep();
+  return expiredIds.length;
+}
+
 // ---------------------------------------------------------------------------
 // The list read: filters, sort and cursor pagination (docs/06 "Query
 // parameters for the list"). The query object is validated into a

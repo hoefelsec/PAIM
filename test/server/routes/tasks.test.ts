@@ -97,6 +97,18 @@ function remove(slug: string, ref: string, query = "") {
   });
 }
 
+function getTrash(slug: string) {
+  return app.inject({ method: "GET", url: `/api/projects/${slug}/trash`, headers: HEADERS });
+}
+
+function restore(slug: string, ref: string) {
+  return app.inject({
+    method: "POST",
+    url: `/api/projects/${slug}/trash/${ref}`,
+    headers: HEADERS,
+  });
+}
+
 /** The stored row, including a trashed one — reads through the API hide it. */
 function storedRow(id: string): { deletedAt: string | null } | undefined {
   return db.prepare("SELECT deletedAt FROM tasks WHERE id = ?").get(id) as
@@ -544,6 +556,98 @@ describe("delete", () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.json().error.details).toMatchObject({ field: "hard" });
+  });
+});
+
+describe("trash", () => {
+  it("lists a soft-deleted task and restores it intact under the same key", async () => {
+    const project = await createProject();
+    const task = await createTask(project.slug, { title: "Trashed", priority: "high" });
+    expect((await remove(project.slug, task.key)).statusCode).toBe(200);
+
+    // Invisible everywhere except the trash.
+    expect((await read(project.slug, task.key)).statusCode).toBe(404);
+    const listRes = await app.inject({
+      method: "GET",
+      url: `/api/projects/${project.slug}/tasks`,
+      headers: HEADERS,
+    });
+    expect((listRes.json().data as Task[]).find((t) => t.id === task.id)).toBeUndefined();
+
+    const trashRes = await getTrash(project.slug);
+    expect(trashRes.statusCode).toBe(200);
+    expect(trashRes.json().meta).toMatchObject({ total: 1, hasMore: false });
+    const trashed = trashRes.json().data as Task[];
+    expect(trashed).toHaveLength(1);
+    expect(trashed[0]).toMatchObject({ id: task.id, key: task.key });
+    expect(trashed[0]!.deletedAt).toEqual(expect.any(String));
+
+    const restoreRes = await restore(project.slug, task.key);
+    expect(restoreRes.statusCode).toBe(200);
+    const restored = restoreRes.json().data as Task;
+    expect(restored).toMatchObject({
+      id: task.id,
+      key: task.key,
+      title: "Trashed",
+      priority: "high",
+      deletedAt: null,
+    });
+
+    // Restored intact: visible again under a normal read and in the list.
+    const again = await read(project.slug, task.key);
+    expect(again.statusCode).toBe(200);
+    expect(again.json().data).toMatchObject({ key: task.key, deletedAt: null });
+    expect((await getTrash(project.slug)).json().data).toEqual([]);
+  });
+
+  it("restores by uuid as well as by key", async () => {
+    const project = await createProject();
+    const task = await createTask(project.slug, { title: "By id" });
+    await remove(project.slug, task.key);
+
+    const res = await restore(project.slug, task.id);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data).toMatchObject({ key: task.key });
+  });
+
+  it("404s restoring a task that was never trashed", async () => {
+    const project = await createProject();
+    const task = await createTask(project.slug, { title: "Never trashed" });
+
+    const res = await restore(project.slug, task.key);
+
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error.code).toBe("TASK_NOT_FOUND");
+  });
+
+  it("404s restoring a ref that does not exist", async () => {
+    const project = await createProject();
+
+    const res = await restore(project.slug, "TASK-404");
+
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error.code).toBe("TASK_NOT_FOUND");
+  });
+
+  it("404s restoring a hard-deleted task", async () => {
+    const project = await createProject();
+    const task = await createTask(project.slug, { title: "Gone for good" });
+    await remove(project.slug, task.key, "?hard=true");
+
+    const res = await restore(project.slug, task.key);
+
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("lists an empty trash for a project with nothing deleted", async () => {
+    const project = await createProject();
+    await createTask(project.slug, { title: "Still around" });
+
+    const res = await getTrash(project.slug);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ data: [], meta: { total: 0 } });
   });
 });
 

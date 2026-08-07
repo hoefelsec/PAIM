@@ -8,9 +8,13 @@
  *   POST   /api/projects/:project/tasks/:key  partial update
  *   PATCH  /api/projects/:project/tasks/:key  the same handler
  *   DELETE /api/projects/:project/tasks/:key  ?hard=true skips the trash
+ *   GET    /api/projects/:project/trash       tasks in the trash
+ *   POST   /api/projects/:project/trash/:key  restore a task from the trash
  *
- * The trash listing and the restore endpoint, the bulk patch, the status
- * gates, the epic invariants and the change events all belong to later work.
+ * The retention sweep that purges old trashed rows lives in
+ * src/server/tasks/sweep.js, on top of src/server/db/tasks.js's
+ * `sweepTrash`. The bulk patch, the status gates, the epic invariants and
+ * the change events all belong to later work.
  */
 
 import { randomUUID } from "node:crypto";
@@ -22,6 +26,7 @@ import {
   hardDeleteTask,
   insertTask,
   listTasks,
+  listTrashedTasks,
   nextTimestamp,
   updateTask,
 } from "../db/tasks.js";
@@ -262,4 +267,41 @@ export async function taskRoutes(app: FastifyInstance, options: TaskRoutesOption
     hardDeleteTask(db, task.id);
     return { data: { id: task.id, key: task.key, deleted: true, hard: true } };
   });
+
+  app.get<{ Params: { project: string } }>("/api/projects/:project/trash", async (req) => {
+    const db = getDb();
+    const project = requireProject(db, req.params.project);
+    const trashed = listTrashedTasks(db, project.id);
+    return listEnvelope(
+      trashed.map((task) => taskView(project, task)),
+      { total: trashed.length, cursor: null, hasMore: false },
+    );
+  });
+
+  app.post<{ Params: TaskParams }>(
+    "/api/projects/:project/trash/:key",
+    async (req) => {
+      const db = getDb();
+      const project = requireProject(db, req.params.project);
+      const task = getTaskByRef(db, project.id, req.params.key, { includeTrashed: true });
+      if (!task || task.deletedAt === null) {
+        throw new ApiError(
+          "TASK_NOT_FOUND",
+          404,
+          { task: req.params.key, project: project.slug },
+          `No task "${req.params.key}" in the trash of project "${project.slug}"`,
+        );
+      }
+
+      // Restored intact, same key (docs/06 "The trash"): every other field
+      // stays exactly as it was when the task was deleted.
+      const restored: Task = {
+        ...task,
+        deletedAt: null,
+        updatedAt: nextTimestamp(task.updatedAt),
+      };
+      updateTask(db, restored);
+      return { data: taskView(project, restored) };
+    },
+  );
 }
