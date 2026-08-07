@@ -26,6 +26,8 @@ export const queryKeys = {
   projectStats: (slug: string) => ["project-stats", slug] as const,
   /** Every task of one project — what the table groups and draws. */
   tasks: (slug: string) => ["tasks", slug] as const,
+  /** One task, by key — what the task view reads (docs/07 "The task view"). */
+  task: (slug: string, key: string) => ["task", slug, key] as const,
 };
 
 /**
@@ -106,6 +108,23 @@ export function useTasks(slug: string): UseQueryResult<TaskView[]> {
   });
 }
 
+/**
+ * One task, by key or by UUID (docs/06 accepts either as the reference).
+ *
+ * The task view reads this rather than picking a row out of the table's list:
+ * a deep link into a task must load that one task without first walking every
+ * page of the project (docs/07 "Routes").
+ */
+export function useTask(slug: string, key: string): UseQueryResult<TaskView> {
+  return useQuery({
+    queryKey: queryKeys.task(slug, key),
+    queryFn: () =>
+      apiGet<TaskView>(
+        `/api/projects/${encodeURIComponent(slug)}/tasks/${encodeURIComponent(key)}`,
+      ),
+  });
+}
+
 /* ── writes ─────────────────────────────────────────────────────────────── */
 
 /** One inline edit: the row the user was looking at, and the write it makes. */
@@ -114,9 +133,11 @@ export interface SaveTaskVars {
   patch: TaskPatch;
 }
 
-/** The list as it was before the optimistic change — what a refusal restores. */
+/** The caches as they were before the optimistic change — what a refusal restores. */
 interface SaveContext {
   previous: TaskView[] | undefined;
+  /** The single-task cache the task view reads, when one is loaded. */
+  previousTask: TaskView | undefined;
 }
 
 /** Replaces one task in the cached list, leaving the order alone. */
@@ -156,23 +177,37 @@ export function useSaveTask(slug: string) {
 
     onMutate: async ({ task, patch }) => {
       // A read in flight would land after the optimistic write and undo it.
-      await client.cancelQueries({ queryKey: key });
+      const single = queryKeys.task(slug, task.key);
+      await Promise.all([
+        client.cancelQueries({ queryKey: key }),
+        client.cancelQueries({ queryKey: single }),
+      ]);
       const previous = client.getQueryData<TaskView[]>(key);
+      const previousTask = client.getQueryData<TaskView>(single);
       client.setQueryData<TaskView[]>(key, (rows) =>
         replaceTask(rows, task.id, (row) => mergeTask(row, patch)),
       );
-      return { previous };
+      // The task view edits the same task through the same mutation, so its
+      // own cache moves with the list — one write, one optimistic copy.
+      if (previousTask) client.setQueryData<TaskView>(single, mergeTask(previousTask, patch));
+      return { previous, previousTask };
     },
 
-    onError: (_error, _vars, context) => {
+    onError: (_error, vars, context) => {
       if (context?.previous) client.setQueryData<TaskView[]>(key, context.previous);
+      if (context?.previousTask) {
+        client.setQueryData<TaskView>(queryKeys.task(slug, vars.task.key), context.previousTask);
+      }
     },
 
-    onSuccess: (record) => {
+    onSuccess: (record, vars) => {
       client.setQueryData<TaskView[]>(key, (rows) =>
         // Spread over the row: the list endpoint computes an epic's progress
         // (docs/02) and a single-task answer that omits it must not erase it.
         replaceTask(rows, record.id, (row) => ({ ...row, ...record })),
+      );
+      client.setQueryData<TaskView>(queryKeys.task(slug, vars.task.key), (current) =>
+        current === undefined ? undefined : { ...current, ...record },
       );
     },
   });

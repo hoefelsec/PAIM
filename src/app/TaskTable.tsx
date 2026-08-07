@@ -25,7 +25,7 @@
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SizePill } from "../ui/controls";
 import { PriorityIcon, SizeIcon, StatusRing, TypeIcon } from "../ui/shapes";
-import { SIZE_LABEL, STATUS_LABEL, TASK_TYPES, type TaskType } from "../ui/vocabulary";
+import { SIZE_LABEL, STATUS_LABEL } from "../ui/vocabulary";
 import {
   columnEditors,
   isNoop,
@@ -42,19 +42,13 @@ import {
   epicProgressText,
   formatFieldValue,
   tableColumns,
+  taskType,
   type Column,
   type TableModel,
   type TaskView,
 } from "./table";
+import { ValueEditor } from "./ValueEditor";
 import type { Status } from "../shared/statuses.js";
-
-/** The `type` value of a task, when it is one the pool draws (docs/03). */
-function taskType(task: TaskView): TaskType | null {
-  const value = task.fields["type"];
-  return typeof value === "string" && (TASK_TYPES as readonly string[]).includes(value)
-    ? (value as TaskType)
-    : null;
-}
 
 /* ── cells ──────────────────────────────────────────────────────────────── */
 
@@ -152,109 +146,6 @@ const EDITABLE_CELL =
   "cursor-text transition-colors duration-(--dur-hover-out) " +
   "hover:bg-overlay hover:duration-(--dur-hover-in)";
 
-const CONTROL =
-  "h-[23px] w-full min-w-0 rounded-[4px] border border-bd-strong bg-raised px-1 " +
-  "text-row text-tx-primary outline-none focus:border-accent";
-
-/**
- * The open editor. docs/07: "click outside to save" — and Enter saves, Esc
- * cancels. There is no Save control anywhere, so the editor commits itself.
- *
- * A menu commits on choice as well: a native select closes on the choice, and
- * asking for Enter afterwards would be a Save button spelled differently.
- */
-function CellEditor({
-  spec,
-  task,
-  onCommit,
-  onCancel,
-}: {
-  spec: EditorSpec;
-  task: TaskView;
-  onCommit: (task: TaskView, spec: EditorSpec, raw: string) => void;
-  onCancel: () => void;
-}) {
-  const [value, setValue] = useState(() => spec.read(task));
-  const control = useRef<HTMLInputElement | HTMLSelectElement>(null);
-  // Commit and cancel both close the editor. A select commits on change and
-  // then blurs on the way out, so the second call must do nothing.
-  const settled = useRef(false);
-
-  useEffect(() => {
-    control.current?.focus();
-    if (control.current instanceof HTMLInputElement) control.current.select();
-  }, []);
-
-  const commit = (raw: string) => {
-    if (settled.current) return;
-    settled.current = true;
-    onCommit(task, spec, raw);
-  };
-
-  const cancel = () => {
-    if (settled.current) return;
-    settled.current = true;
-    onCancel();
-  };
-
-  const onKeyDown = (event: React.KeyboardEvent) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      commit(value);
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      cancel();
-    }
-  };
-
-  const label = `${spec.label} of ${task.key}`;
-
-  if (spec.kind === "select") {
-    // A stored value the schema no longer offers still shows (docs/03 rule 2:
-    // a field change never rewrites stored values), so the menu carries it.
-    const options = spec.options.some((option) => option.value === value)
-      ? spec.options
-      : [...spec.options, { value, label: value }];
-
-    return (
-      <select
-        ref={control as React.RefObject<HTMLSelectElement>}
-        aria-label={label}
-        value={value}
-        onChange={(event) => {
-          setValue(event.target.value);
-          commit(event.target.value);
-        }}
-        onKeyDown={onKeyDown}
-        onBlur={() => commit(value)}
-        className={CONTROL}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    );
-  }
-
-  return (
-    <input
-      ref={control as React.RefObject<HTMLInputElement>}
-      type="text"
-      // A number field takes the numeric keyboard, not a stepper: the service
-      // is the one that decides whether the text is a number.
-      inputMode={spec.kind === "number" ? "decimal" : undefined}
-      aria-label={label}
-      value={value}
-      onChange={(event) => setValue(event.target.value)}
-      onKeyDown={onKeyDown}
-      onBlur={() => commit(value)}
-      className={CONTROL}
-    />
-  );
-}
-
 /* ── rows ───────────────────────────────────────────────────────────────── */
 
 interface RowProps {
@@ -345,7 +236,7 @@ const TaskRow = memo(function TaskRow({
             )}
             {isKey && child && <ChildGuide />}
             {spec !== undefined && editing === column.id ? (
-              <CellEditor spec={spec} task={task} onCommit={onCommit} onCancel={onCancel} />
+              <ValueEditor spec={spec} task={task} onCommit={onCommit} onCancel={onCancel} />
             ) : (
               content
             )}

@@ -12,6 +12,7 @@
 
 import { fieldView, type FieldDef, type FieldDefView } from "../shared/fields.js";
 import { sortByCatalogue, type Status } from "../shared/statuses.js";
+import { TASK_TYPES, type TaskType } from "../ui/vocabulary";
 import type { Task } from "../shared/types.js";
 
 /**
@@ -94,6 +95,18 @@ export function formatFieldValue(def: FieldDefView, value: unknown): string {
   if (Array.isArray(value)) return value.map((entry) => String(entry)).join(", ");
   if (typeof value === "boolean") return value ? "✓" : "";
   return String(value);
+}
+
+/**
+ * The `type` value of a task, when it is one the shape pool draws (docs/03
+ * "The `type` field"). A project may offer options outside the pool, and a
+ * value the pool has no silhouette for gets no glyph — the word still shows.
+ */
+export function taskType(task: TaskView): TaskType | null {
+  const value = task.fields["type"];
+  return typeof value === "string" && (TASK_TYPES as readonly string[]).includes(value)
+    ? (value as TaskType)
+    : null;
 }
 
 /* ── grouping ───────────────────────────────────────────────────────────── */

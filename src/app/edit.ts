@@ -14,11 +14,13 @@
  */
 
 import { fieldView, type FieldDef, type FieldDefView } from "../shared/fields.js";
+import { sortByCatalogue, STATUS_CATALOGUE, type Status } from "../shared/statuses.js";
 import {
   PRIORITIES,
   PRIORITY_LABEL,
   SIZES,
   SIZE_LABEL,
+  STATUS_LABEL,
   TASK_TYPES,
   TYPE_LABEL,
   kindOf,
@@ -33,8 +35,12 @@ import type { TaskPriority, TaskSize } from "../shared/types.js";
  */
 export interface TaskPatch {
   title?: string;
+  status?: Status;
   priority?: TaskPriority;
   size?: TaskSize;
+  labels?: string[];
+  /** docs/06: `null` clears an optional reference. */
+  assignee?: string | null;
   fields?: Record<string, unknown>;
 }
 
@@ -169,10 +175,10 @@ function parseFieldValue(def: FieldDefView, raw: string): unknown {
  * the comma-separated text the cell already prints. `long_text` is a single
  * line here too — the task view (spec 15) owns the long form.
  */
-function fieldEditor(column: Column, def: FieldDefView): EditorSpec {
+function fieldEditor(id: string, def: FieldDefView): EditorSpec {
   const select = def.type === "select" || def.type === "checkbox";
   return {
-    columnId: column.id,
+    columnId: id,
     label: def.label,
     kind: select ? "select" : def.type === "number" ? "number" : "text",
     options:
@@ -228,12 +234,94 @@ export function columnEditors(
         break;
       default:
         if (column.field && !column.field.hidden) {
-          editors.set(column.id, fieldEditor(column, column.field));
+          editors.set(column.id, fieldEditor(column.id, column.field));
         }
     }
   }
 
   return editors;
+}
+
+/* ── the properties column (docs/07 "The task view", T24) ───────────────── */
+
+/**
+ * Status is the one property the table has no column for: the table groups by
+ * it. The menu is the project's pipeline (docs/02: "one of the project's
+ * statuses"), in catalogue order — docs/04 fixes that order and a project
+ * cannot change it. Which *moves* are legal is the pipeline engine's
+ * question; a refusal comes back as a 4xx and the property reverts.
+ */
+function statusEditor(statuses: readonly Status[]): EditorSpec {
+  const pool = statuses.length > 0 ? sortByCatalogue(statuses) : [...STATUS_CATALOGUE];
+  return {
+    columnId: "status",
+    label: "Status",
+    kind: "select",
+    options: pool.map((status): EditorOption => ({ value: status, label: STATUS_LABEL[status] })),
+    read: (task) => task.status,
+    patch: (raw) => ({ status: raw as Status }),
+  };
+}
+
+/** Labels are a list, and one line of comma-separated words is the whole of it. */
+const LABELS: EditorSpec = {
+  columnId: "labels",
+  label: "Labels",
+  kind: "text",
+  options: [],
+  read: (task) => task.labels.join(", "),
+  patch: (raw) => ({
+    labels: raw
+      .split(",")
+      .map((label) => label.trim())
+      .filter((label) => label !== ""),
+  }),
+};
+
+/**
+ * docs/08: the service never guesses an assignee, so it is free text — there
+ * is no person directory to pick from. Emptied, it clears (docs/06: `null`).
+ */
+const ASSIGNEE: EditorSpec = {
+  columnId: "assignee",
+  label: "Assignee",
+  kind: "text",
+  options: [],
+  read: (task) => task.assignee ?? "",
+  patch: (raw) => ({ assignee: raw.trim() === "" ? null : raw.trim() }),
+};
+
+/**
+ * The properties of the task view's right column, in the order docs/07 lists
+ * them: status, priority, size, type, the custom fields, then labels and
+ * assignee.
+ *
+ * Every custom field appears, not only the `showInTable` ones: `showInTable`
+ * chooses the table's columns (docs/03), and the task view is where a field
+ * that is too long or too rare for a 33 pixel row is read and written.
+ * `type` is drawn once, in its fixed place, and a removed field (`hidden`) is
+ * gone from the column while its stored value stays (docs/03 rule 2).
+ */
+export function propertyEditors(
+  statuses: readonly Status[],
+  schema: readonly FieldDef[],
+): EditorSpec[] {
+  const defs = schema.map(fieldView);
+  const typeDef = defs.find((def) => def.key === "type") ?? null;
+  const custom = defs
+    .filter((def) => !def.hidden && def.key !== "type")
+    .sort((a, b) => a.order - b.order || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+    .map((def) => fieldEditor(`field.${def.key}`, def));
+
+  return [
+    statusEditor(statuses),
+    PRIORITY,
+    SIZE,
+    typeEditor(typeDef),
+    ...custom,
+    LABELS,
+    ASSIGNEE,
+  ];
 }
 
 /* ── the optimistic copy ────────────────────────────────────────────────── */
@@ -250,6 +338,9 @@ export function columnEditors(
 export function mergeTask(task: TaskView, patch: TaskPatch): TaskView {
   const next: TaskView = { ...task };
   if (patch.title !== undefined) next.title = patch.title;
+  if (patch.status !== undefined) next.status = patch.status;
+  if (patch.labels !== undefined) next.labels = patch.labels;
+  if (patch.assignee !== undefined) next.assignee = patch.assignee;
   if (patch.priority !== undefined) next.priority = patch.priority;
   if (patch.size !== undefined) {
     next.size = patch.size;

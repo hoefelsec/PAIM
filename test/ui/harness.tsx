@@ -169,6 +169,20 @@ export function installApi(options: {
     const params = url.searchParams;
     const method = (init?.method ?? "GET").toUpperCase();
 
+    // One task: `GET …/tasks/:key` is what the task view deep link reads
+    // (docs/06 — the reference is a key or a UUID).
+    const single = /^\/api\/projects\/([^/]+)\/tasks\/([^/]+)$/.exec(url.pathname);
+    if (single?.[1] && single[2] && method === "GET") {
+      const project = options.projects.find((p) => p.slug === single[1]);
+      if (!project) return notFound("PROJECT_NOT_FOUND", `No project "${single[1]}"`);
+      const ref = decodeURIComponent(single[2]);
+      const task = (options.tasks?.[single[1]] ?? []).find(
+        (row) => row.key === ref || row.id === ref,
+      );
+      if (!task) return notFound("TASK_NOT_FOUND", `No task "${ref}"`);
+      return json(200, { data: { ...task } });
+    }
+
     // One task: `POST|PATCH …/tasks/:key` is the inline edit of docs/07.
     const write = /^\/api\/projects\/([^/]+)\/tasks\/([^/]+)$/.exec(url.pathname);
     if (write?.[1] && write[2] && (method === "PATCH" || method === "POST")) {

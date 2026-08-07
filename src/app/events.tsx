@@ -27,9 +27,11 @@ export type LiveState = "connecting" | "open" | "closed";
 export function invalidateForEvent(client: QueryClient, event: ChangeEvent): void {
   switch (event.type) {
     case "task":
-      // Every task list, and the open/done tallies the switcher and the
-      // grid read (queryKeys.tasks / queryKeys.projectStats).
+      // Every task list, every single task a task view is holding open, and
+      // the open/done tallies the switcher and the grid read (queryKeys.tasks
+      // / queryKeys.task / queryKeys.projectStats).
       void client.invalidateQueries({ queryKey: ["tasks"] });
+      void client.invalidateQueries({ queryKey: ["task"] });
       void client.invalidateQueries({ queryKey: ["project-stats"] });
       return;
     case "project":
