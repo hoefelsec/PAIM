@@ -1,6 +1,7 @@
 /**
  * Task create, read, update and delete (docs/06-rest-api.md "Tasks").
  *
+ *   GET    /api/projects/:project/tasks       list: filters, sort, cursor
  *   POST   /api/projects/:project/tasks       create — `title` is the only
  *                                             required field
  *   GET    /api/projects/:project/tasks/:key  read one, by key or by UUID
@@ -8,10 +9,8 @@
  *   PATCH  /api/projects/:project/tasks/:key  the same handler
  *   DELETE /api/projects/:project/tasks/:key  ?hard=true skips the trash
  *
- * The list endpoint (its filters, sort and cursor), the trash listing and the
- * restore endpoint, the bulk patch, the status gates, the epic invariants and
- * the change events all belong to later work; this module is the record
- * lifecycle only.
+ * The trash listing and the restore endpoint, the bulk patch, the status
+ * gates, the epic invariants and the change events all belong to later work.
  */
 
 import { randomUUID } from "node:crypto";
@@ -22,13 +21,16 @@ import {
   getTaskByRef,
   hardDeleteTask,
   insertTask,
+  listTasks,
   nextTimestamp,
   updateTask,
 } from "../db/tasks.js";
+import { listEnvelope } from "../envelope.js";
 import { ApiError } from "../errors.js";
 import { readFields } from "../fields/values.js";
 import { applyFieldsWrite } from "../tasks/fields.js";
 import { nextTaskKey } from "../tasks/keys.js";
+import { encodeCursor, parseTaskListQuery } from "../tasks/query.js";
 import {
   applyTaskPatch,
   defaultTaskCore,
@@ -118,6 +120,27 @@ function resolveParent(db: Database.Database, project: Project, ref: string | nu
 
 export async function taskRoutes(app: FastifyInstance, options: TaskRoutesOptions): Promise<void> {
   const { getDb } = options;
+
+  app.get<{ Params: { project: string } }>("/api/projects/:project/tasks", async (req) => {
+    const db = getDb();
+    const project = requireProject(db, req.params.project);
+    const spec = parseTaskListQuery((req.query ?? {}) as Record<string, unknown>, {
+      fieldSchema: project.fieldSchema,
+      // `parent=FEAT-3` names the epic the way every other reference does.
+      // `resolveParent` returns null only for a null reference.
+      resolveParent: (ref) => resolveParent(db, project, ref)!,
+    });
+
+    const page = listTasks(db, project.id, spec);
+    return listEnvelope(
+      page.tasks.map((task) => taskView(project, task)),
+      {
+        total: page.total,
+        cursor: page.cursorValues === null ? null : encodeCursor(spec.signature, page.cursorValues),
+        hasMore: page.hasMore,
+      },
+    );
+  });
 
   app.post<{ Params: { project: string } }>(
     "/api/projects/:project/tasks",

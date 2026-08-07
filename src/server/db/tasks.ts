@@ -10,7 +10,14 @@
  */
 
 import type Database from "better-sqlite3";
-import type { Task } from "../../shared/types.js";
+import {
+  CLOSED_STATUSES,
+  OPEN_STATUSES,
+  STATUS_CATALOGUE,
+  type Status,
+} from "../../shared/statuses.js";
+import { TASK_PRIORITIES, TASK_SIZES, type Task } from "../../shared/types.js";
+import type { SortTerm, TaskListSpec, TaskSortField } from "../tasks/query.js";
 
 /** The raw shape of a `tasks` row: JSON columns are still text here. */
 interface TaskRow {
@@ -215,6 +222,213 @@ export function getTaskById(
 /** Removes the row for good — `DELETE ?hard=true`, which skips the trash. */
 export function hardDeleteTask(db: Database.Database, id: string): void {
   db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
+}
+
+// ---------------------------------------------------------------------------
+// The list read: filters, sort and cursor pagination (docs/06 "Query
+// parameters for the list"). The query object is validated into a
+// TaskListSpec by src/server/tasks/query.ts; this half turns that spec into
+// one SELECT.
+// ---------------------------------------------------------------------------
+
+/**
+ * A `CASE` that maps a value of a fixed vocabulary to its position in that
+ * vocabulary. Sorting `priority` or `size` as text would order `high` before
+ * `low` before `none`; docs/02 gives both a scale, and the scale is the order
+ * a caller means. An unknown value sorts last.
+ */
+function rankExpression(column: string, vocabulary: readonly string[]): string {
+  const cases = vocabulary.map((value, index) => `WHEN '${value}' THEN ${index}`).join(" ");
+  return `CASE ${column} ${cases} ELSE ${vocabulary.length} END`;
+}
+
+/**
+ * The SQL each sortable column becomes. Two rules shape them: the value must
+ * be totally ordered (no NULL, which SQLite compares to nothing, so the
+ * cursor predicate would drop rows), and it must be a single expression, so
+ * one cursor value carries one sort term.
+ *
+ * `key` sorts naturally: `FEAT-2` before `FEAT-10`, which text order gets
+ * backwards.
+ */
+const SORT_EXPRESSIONS: Record<TaskSortField, string> = {
+  key:
+    "printf('%s%012d', substr(tasks.key, 1, instr(tasks.key, '-'))," +
+    " CAST(substr(tasks.key, instr(tasks.key, '-') + 1) AS INTEGER))",
+  title: "lower(tasks.title)",
+  status: rankExpression("tasks.status", STATUS_CATALOGUE),
+  priority: rankExpression("tasks.priority", TASK_PRIORITIES),
+  size: rankExpression("tasks.size", TASK_SIZES),
+  order: 'tasks."order"',
+  assignee: "ifnull(lower(tasks.assignee), '')",
+  createdAt: "tasks.createdAt",
+  updatedAt: "tasks.updatedAt",
+  closedAt: "ifnull(tasks.closedAt, '')",
+  id: "tasks.id",
+};
+
+/** Collects bound values so no caller value is ever spliced into the SQL. */
+class Binder {
+  readonly params: Record<string, unknown> = {};
+  private next = 0;
+
+  bind(value: unknown): string {
+    const name = `p${this.next++}`;
+    this.params[name] = value;
+    return `@${name}`;
+  }
+
+  list(values: readonly unknown[]): string {
+    return values.map((value) => this.bind(value)).join(", ");
+  }
+
+  snapshot(): Record<string, unknown> {
+    return { ...this.params };
+  }
+}
+
+/** `%` and `_` in a `q` are literal characters, not wildcards. */
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+function buildFilters(projectId: string, spec: TaskListSpec, binder: Binder): string {
+  // The trash is invisible to every list (docs/06 "The trash").
+  const where = [`tasks.projectId = ${binder.bind(projectId)}`, "tasks.deletedAt IS NULL"];
+
+  if (spec.status !== null) {
+    where.push(`tasks.status IN (${binder.list(spec.status)})`);
+  }
+  if (spec.open !== null) {
+    const statuses: Status[] = spec.open ? OPEN_STATUSES : CLOSED_STATUSES;
+    where.push(`tasks.status IN (${binder.list(statuses)})`);
+  }
+  if (spec.priority !== null) {
+    where.push(`tasks.priority IN (${binder.list(spec.priority)})`);
+  }
+  if (spec.sizes !== null) {
+    where.push(`tasks.size IN (${binder.list(spec.sizes)})`);
+  }
+  if (spec.assignees !== null) {
+    where.push(`tasks.assignee IN (${binder.list(spec.assignees)})`);
+  }
+  if (spec.parentId !== null) {
+    where.push(`tasks.parentId = ${binder.bind(spec.parentId)}`);
+  }
+  if (spec.labels !== null) {
+    where.push(
+      "EXISTS (SELECT 1 FROM json_each(tasks.labels)" +
+        ` WHERE json_each.value IN (${binder.list(spec.labels)}))`,
+    );
+  }
+
+  for (const filter of spec.fields) {
+    // json_each over a path yields the scalar at that path, or one row per
+    // element when it holds an array — so one predicate covers a `select`
+    // and a `multi_select` alike, and yields nothing when the key is absent.
+    const path = binder.bind(`$.${filter.key}`);
+    const contains =
+      `EXISTS (SELECT 1 FROM json_each(tasks.fields, ${path})` +
+      ` WHERE CAST(json_each.value AS TEXT) IN (${binder.list(filter.values)}))`;
+    where.push(
+      filter.matchesDefault
+        ? `(${contains} OR json_type(tasks.fields, ${path}) IS NULL)`
+        : contains,
+    );
+  }
+
+  if (spec.q !== null) {
+    const pattern = binder.bind(`%${escapeLike(spec.q)}%`);
+    where.push(
+      `(tasks.title LIKE ${pattern} ESCAPE '\\' OR tasks.description LIKE ${pattern} ESCAPE '\\')`,
+    );
+  }
+  if (spec.updatedSince !== null) {
+    where.push(`tasks.updatedAt >= ${binder.bind(spec.updatedSince)}`);
+  }
+
+  return where.join(" AND ");
+}
+
+/**
+ * "Everything after the row the cursor names", in the sort's own order. With
+ * mixed directions this cannot be a row comparison, so it is the equivalent
+ * lexicographic chain:
+ *
+ *   e0 > v0 OR (e0 = v0 AND (e1 < v1 OR (e1 = v1 AND …)))
+ */
+function cursorPredicate(sort: readonly SortTerm[], after: readonly unknown[], binder: Binder) {
+  const chain = (index: number): string => {
+    const term = sort[index]!;
+    const expression = SORT_EXPRESSIONS[term.field];
+    const operator = term.direction === "asc" ? ">" : "<";
+    const value = binder.bind(after[index]);
+    const ahead = `${expression} ${operator} ${value}`;
+    if (index === sort.length - 1) return ahead;
+    return `(${ahead} OR (${expression} = ${value} AND ${chain(index + 1)}))`;
+  };
+  return `(${chain(0)})`;
+}
+
+export interface TaskPage {
+  tasks: Task[];
+  /** Rows matching the filters, ignoring the page window. */
+  total: number;
+  hasMore: boolean;
+  /** The sort values of the last row, for the next cursor; null on the last page. */
+  cursorValues: unknown[] | null;
+}
+
+/**
+ * One page of the tasks of a project. Pagination is keyset, not offset: the
+ * cursor carries the sort values of the last row of the previous page, so a
+ * task inserted or updated between two requests never shifts the window and
+ * makes the walk repeat or skip a row.
+ */
+export function listTasks(
+  db: Database.Database,
+  projectId: string,
+  spec: TaskListSpec,
+): TaskPage {
+  const binder = new Binder();
+  const filters = buildFilters(projectId, spec, binder);
+  const countParams = binder.snapshot();
+
+  const total = (
+    db.prepare(`SELECT COUNT(*) AS n FROM tasks WHERE ${filters}`).get(countParams) as { n: number }
+  ).n;
+
+  const selected = spec.sort
+    .map((term, index) => `${SORT_EXPRESSIONS[term.field]} AS _s${index}`)
+    .join(", ");
+  const order = spec.sort
+    .map((term, index) => `_s${index} ${term.direction === "asc" ? "ASC" : "DESC"}`)
+    .join(", ");
+
+  const where =
+    spec.after === null
+      ? filters
+      : `${filters} AND ${cursorPredicate(spec.sort, spec.after, binder)}`;
+
+  // One row past the page answers `hasMore` without a second count.
+  const rows = db
+    .prepare(
+      `SELECT tasks.*, ${selected} FROM tasks WHERE ${where}` +
+        ` ORDER BY ${order} LIMIT ${spec.limit + 1}`,
+    )
+    .all(binder.params) as (TaskRow & Record<string, unknown>)[];
+
+  const hasMore = rows.length > spec.limit;
+  const page = hasMore ? rows.slice(0, spec.limit) : rows;
+  const last = page[page.length - 1];
+
+  return {
+    tasks: page.map(rowToTask),
+    total,
+    hasMore,
+    cursorValues:
+      hasMore && last ? spec.sort.map((_term, index) => last[`_s${index}`] ?? null) : null,
+  };
 }
 
 /** How many tasks name `id` as their parent (`parentId` is a foreign key). */

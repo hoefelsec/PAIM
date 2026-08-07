@@ -24,6 +24,45 @@ export const STATUS_CATALOGUE = [
 export type Status = (typeof STATUS_CATALOGUE)[number];
 
 /**
+ * docs/04: "`category` has four values: `todo`, `in_progress`, `done`,
+ * `cancelled`. A client uses `category` to answer 'is this task open?'
+ * without knowledge of the project's pipeline."
+ */
+export const STATUS_CATEGORIES = ["todo", "in_progress", "done", "cancelled"] as const;
+
+export type StatusCategory = (typeof STATUS_CATEGORIES)[number];
+
+/** The `Category` column of the catalogue table in docs/04. */
+export const STATUS_CATEGORY = {
+  backlog: "todo",
+  open_questions: "todo",
+  design: "todo",
+  ready: "todo",
+  executing: "in_progress",
+  testing: "in_progress",
+  ai_review: "in_progress",
+  manual_review: "in_progress",
+  done: "done",
+  cancelled: "cancelled",
+} as const satisfies Record<Status, StatusCategory>;
+
+export function categoryOf(status: Status): StatusCategory {
+  return STATUS_CATEGORY[status];
+}
+
+/** The statuses of the categories a caller named — the basis of `?open=`. */
+export function statusesInCategories(categories: readonly StatusCategory[]): Status[] {
+  return STATUS_CATALOGUE.filter((status) => categories.includes(STATUS_CATEGORY[status]));
+}
+
+/**
+ * "Open" is `todo` or `in_progress` (docs/06 `open=true`); the complement is
+ * everything the pipeline treats as closed.
+ */
+export const OPEN_STATUSES: Status[] = statusesInCategories(["todo", "in_progress"]);
+export const CLOSED_STATUSES: Status[] = statusesInCategories(["done", "cancelled"]);
+
+/**
  * Every project must enable these five. docs/04: "A project must include
  * open_questions, design, ready, executing, and done."
  */
