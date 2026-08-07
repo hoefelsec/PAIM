@@ -8,6 +8,7 @@ import { createApp } from "../../../src/server/app.js";
 import { openDatabase } from "../../../src/server/db/index.js";
 import { clearValidatorCache, getValidator } from "../../../src/server/fields/validator.js";
 import { clearVersionCache } from "../../../src/server/projects/version.js";
+import { nextTaskKey } from "../../../src/server/tasks/keys.js";
 import { STATUS_CATALOGUE } from "../../../src/shared/statuses.js";
 import type { Project, ProjectView } from "../../../src/shared/types.js";
 
@@ -642,6 +643,25 @@ describe("DELETE /api/projects/:project", () => {
     expect((await read("paim")).statusCode).toBe(404);
     const remaining = db.prepare("SELECT COUNT(*) AS n FROM tasks").get() as { n: number };
     expect(remaining.n).toBe(0);
+  });
+
+  it("deletes a project that has allocated a task key without a raw FK 500 (T11 task_counters cascade)", async () => {
+    const project = await createProject({ name: "PAIM" });
+    // Exactly what T12 does on first task create: allocate a key, which
+    // creates a `task_counters` row for this project.
+    nextTaskKey(db, project.id, "feature");
+    const before = db
+      .prepare("SELECT COUNT(*) AS n FROM task_counters WHERE projectId = ?")
+      .get(project.id) as { n: number };
+    expect(before.n).toBe(1);
+
+    const res = await del("paim");
+
+    expect(res.statusCode).toBe(200);
+    const after = db
+      .prepare("SELECT COUNT(*) AS n FROM task_counters WHERE projectId = ?")
+      .get(project.id) as { n: number };
+    expect(after.n).toBe(0);
   });
 
   it("leaves other projects' tasks alone", async () => {
