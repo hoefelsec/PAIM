@@ -12,6 +12,8 @@ import { vi } from "vitest";
 import App from "../../src/app/App";
 import { createQueryClient } from "../../src/app/queries";
 import { Router } from "../../src/app/router";
+import { OPEN_STATUSES } from "../../src/shared/statuses.js";
+import type { TaskView } from "../../src/app/table";
 import type { ProjectView } from "../../src/shared/types.js";
 
 export interface Counts {
@@ -52,14 +54,69 @@ export function makeProject(overrides: Partial<ProjectView> & { slug: string }):
   };
 }
 
+let taskSeq = 0;
+
+/** A task as the list endpoint returns it. `key` carries the type prefix. */
+export function makeTask(overrides: Partial<TaskView> = {}): TaskView {
+  const now = new Date().toISOString();
+  const n = ++taskSeq;
+  return {
+    id: `task-${n}`,
+    key: `TASK-${n}`,
+    projectId: "id-paim",
+    title: `Task ${n}`,
+    description: "",
+    status: "ready",
+    priority: "none",
+    size: "M",
+    kind: overrides.size === "Epic" ? "epic" : "task",
+    labels: [],
+    assignee: null,
+    parentId: null,
+    order: n,
+    fields: {},
+    model: null,
+    effort: null,
+    safety: null,
+    childManualReview: null,
+    schedule: null,
+    dependsOn: [],
+    questions: [],
+    designOptions: [],
+    tests: [],
+    reviews: [],
+    sourcePrompt: "",
+    evaluatedAt: null,
+    staleReason: null,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    closedAt: null,
+    ...overrides,
+  };
+}
+
 export interface FakeApi {
   /** Every path the client asked for, in order. */
   calls: string[];
 }
 
+/** The subset of `?open=`/`?status=` the table and the counters send. */
+function selectTasks(tasks: readonly TaskView[], params: URLSearchParams): TaskView[] {
+  const status = params.get("status");
+  const open = params.get("open");
+  return tasks.filter((task) => {
+    if (status !== null && !status.split(",").includes(task.status)) return false;
+    if (open === "true" && !(OPEN_STATUSES as string[]).includes(task.status)) return false;
+    return true;
+  });
+}
+
 export function installApi(options: {
   projects: ProjectView[];
   counts?: Record<string, Counts>;
+  /** Tasks per project slug. A slug with tasks answers `counts` from them. */
+  tasks?: Record<string, TaskView[]>;
 }): FakeApi {
   const api: FakeApi = { calls: [] };
 
@@ -94,6 +151,26 @@ export function installApi(options: {
     if (tasks?.[1]) {
       const project = options.projects.find((p) => p.slug === tasks[1]);
       if (!project) return notFound("PROJECT_NOT_FOUND", `No project "${tasks[1]}"`);
+
+      // A seeded project answers from its tasks, cursor walk included: the
+      // cursor is the offset of the next row, which is all the client reads.
+      const seeded = options.tasks?.[tasks[1]];
+      if (seeded) {
+        const selected = selectTasks(seeded, params);
+        const limit = Number(params.get("limit") ?? "50");
+        const from = Number(params.get("cursor") ?? "0");
+        const page = selected.slice(from, from + limit);
+        const hasMore = from + limit < selected.length;
+        return json(200, {
+          data: page,
+          meta: {
+            total: selected.length,
+            cursor: hasMore ? String(from + limit) : null,
+            hasMore,
+          },
+        });
+      }
+
       const counts = options.counts?.[tasks[1]] ?? { total: 0, open: 0, done: 0 };
       const total =
         params.get("open") === "true"

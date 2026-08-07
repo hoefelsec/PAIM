@@ -10,6 +10,7 @@
 
 import { ProjectGrid } from "./ProjectGrid";
 import { Shell } from "./Shell";
+import { TaskTable } from "./TaskTable";
 import { Link, matchPath, useLocation } from "./router";
 
 function NotFound({ pathname }: { pathname: string }) {
@@ -29,7 +30,15 @@ export default function App() {
   if (matchPath("/", pathname)) return <ProjectGrid />;
 
   const workspace = matchPath("/p/:project", pathname);
-  if (workspace?.["project"]) return <Shell slug={workspace["project"]} />;
+  if (workspace?.["project"]) {
+    const slug = workspace["project"];
+    // The table is the only view (docs/07): the workspace address is it.
+    return (
+      <Shell slug={slug}>
+        <TaskTable slug={slug} />
+      </Shell>
+    );
+  }
 
   // Deeper workspace addresses (/p/:project/t/:key, /docs, /settings, …) keep
   // the shell and leave the main pane to the screen that will own them.
