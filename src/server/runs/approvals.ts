@@ -8,9 +8,10 @@
  * approve it. The run holds its position, its context, and its concurrency
  * slot while it waits."
  *
- * The answer arrives from `POST /api/runs/:run/approve|deny`, which is the
- * run-control work's endpoint (specs/09, T56). This module is only the
- * rendezvous the two sides meet at, keyed by operation id.
+ * The answer arrives from `POST /api/runs/:run/approve|deny`
+ * (src/server/routes/runs.ts). This module is only the rendezvous the two
+ * sides meet at, keyed by operation id. Pause and cancel have their own,
+ * keyed by run id: src/server/runs/control.ts.
  */
 
 /** How a parked operation was answered. */

@@ -15,6 +15,7 @@ import { runRoutes } from "./routes/runs.js";
 import { schemaRoutes } from "./routes/schema.js";
 import { taskRoutes } from "./routes/tasks.js";
 import { createApprovalRegistry } from "./runs/approvals.js";
+import { createRunControlRegistry } from "./runs/control.js";
 import { createRunQueue, type RunQueue } from "./runs/queue.js";
 import { createWriterSemaphore } from "./safety/semaphore.js";
 import type { Agent } from "./runs/agent.js";
@@ -119,11 +120,13 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     return db;
   };
 
-  // One queue, one writer semaphore and one approval registry per app: the
-  // semaphore's counts (docs/10 §6) and the parked approvals (docs/10 §4)
-  // are process state, not request state. Built on the first request that
+  // One queue, one writer semaphore, one approval registry and one control
+  // registry per app: the semaphore's counts (docs/10 §6), the parked
+  // approvals (docs/10 §4) and the runs in flight (T56) are process state,
+  // not request state. The queue itself is built on the first request that
   // needs it, for the same reason the database is opened lazily.
   const approvals = createApprovalRegistry();
+  const controls = createRunControlRegistry();
   const semaphore = createWriterSemaphore();
   let queue: RunQueue | null = null;
   const getQueue = (): RunQueue => {
@@ -131,6 +134,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       db: getDb(),
       semaphore,
       approvals,
+      controls,
       ...(options.runs?.createAgent ? { createAgent: options.runs.createAgent } : {}),
       ...(options.runs?.autoStart === undefined ? {} : { autoStart: options.runs.autoStart }),
     });
@@ -152,7 +156,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   app.register(projectRoutes, { getDb });
   app.register(schemaRoutes, { getDb });
   app.register(taskRoutes, { getDb });
-  app.register(runRoutes, { getDb, getQueue });
+  app.register(runRoutes, { getDb, getQueue, approvals, controls });
 
   if (existsSync(staticDir)) {
     app.register(fastifyStatic, {

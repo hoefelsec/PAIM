@@ -5,6 +5,13 @@
  * over the project's workspace and turns everything it does into the
  * `Run`/`Operation` records of docs/09:
  *
+ * - **Control.** Before each tool call the runner touches the operation
+ *   boundary of src/server/runs/control.ts: a pause requested through
+ *   `POST /api/runs/:run/pause` stops the run *here*, between two
+ *   operations — "at the end of the current operation, never
+ *   mid-operation", with the agent's context parked on the run's own
+ *   promise — and a cancel throws out of the loop so nothing else is
+ *   proposed.
  * - **Permission.** Every tool call passes through `canUseTool`, which
  *   confines the target path (docs/10 §2) and then asks the safety policy
  *   (docs/10 §3–§5) via `decide()`. `allow` proceeds; `deny` returns the
@@ -18,9 +25,9 @@
  *   with stdout and the exit code.
  * - **Usage.** Tokens and cost come from the agent's result message.
  *
- * Out of scope here, on purpose: the queue and model routing (T55), the
- * control endpoints (T56), restore points (T57), git (T58), the streams
- * (T59), and advancing the task's status when the run ends (T61).
+ * Out of scope here, on purpose: the queue and model routing (T55), restore
+ * points (T57), git (T58), the streams (T59), and advancing the task's
+ * status when the run ends (T61).
  */
 
 import { randomUUID } from "node:crypto";
@@ -43,6 +50,7 @@ import {
   type ApprovalAnswer,
   type ApprovalRegistry,
 } from "./approvals.js";
+import { RunCancelledError, type RunControlRegistry } from "./control.js";
 import { buildDiff, describeTool, summarizeOperation } from "./tools.js";
 
 export interface ExecuteRunOptions {
@@ -53,6 +61,12 @@ export interface ExecuteRunOptions {
   project: Project;
   agent: Agent;
   approvals: ApprovalRegistry;
+  /**
+   * Where pause, resume and cancel reach this run (T56). Omitted, the run
+   * cannot be paused or cancelled — which is what a test that only
+   * exercises the permission loop wants.
+   */
+  controls?: RunControlRegistry;
   /**
    * The resolved model. Routing is T55's; passing null lets the agent use
    * its own default, which is what the live smoke test does.
@@ -115,6 +129,7 @@ export async function executeRun(options: ExecuteRunOptions): Promise<RunOutcome
     project,
     agent,
     approvals,
+    controls,
     model = null,
     signal,
     now = () => new Date().toISOString(),
@@ -135,6 +150,12 @@ export async function executeRun(options: ExecuteRunOptions): Promise<RunOutcome
   }
 
   const displayRoot = canonicalRoot(workspacePath);
+  // Registered before anything runs, so `POST /api/runs/:run/pause|cancel`
+  // can reach this run from its first operation on. The handle owns the
+  // signal from here: a cancel aborts it, and everything the run waits on —
+  // the agent, a parked approval — waits on it.
+  const control = controls?.register(options.run.id, signal) ?? null;
+  const runSignal = control?.signal ?? signal;
   let current: Run = { ...options.run };
   /** Operations recorded by this run, in the order they happened. */
   const recorded = new Map<string, Operation>();
@@ -183,11 +204,35 @@ export async function executeRun(options: ExecuteRunOptions): Promise<RunOutcome
     recorded.set(id, next);
   }
 
+  /**
+   * The operation boundary (docs/09 "Cancel and Restore are different
+   * actions"). Reached once per tool call, *before* the tool is described,
+   * decided or recorded — so a paused run holds no half-formed operation,
+   * and a cancelled run proposes nothing more.
+   */
+  async function operationBoundary(): Promise<void> {
+    if (!control) return;
+    if (!control.isPaused()) {
+      // Resolves at once, or throws for a run that was cancelled.
+      await control.boundary();
+      return;
+    }
+    // The previous operation has already reported back; this is the end of
+    // it. The status the run returns to is the one it was in, because a
+    // pause changes nothing about the work — only when it happens.
+    const resumeTo: RunStatus = current.status === "paused" ? "executing" : current.status;
+    setStatus("paused");
+    await control.boundary();
+    setStatus(resumeTo);
+  }
+
   const canUseTool = async (
     toolName: string,
     input: Record<string, unknown>,
     context: { toolUseId: string; signal?: AbortSignal },
   ): Promise<AgentPermissionDecision> => {
+    await operationBoundary();
+
     const described = describeTool(toolName, input);
     if (!described) {
       // Not one of the six built-in tools (docs/09 "The library"). Refuse
@@ -258,7 +303,7 @@ export async function executeRun(options: ExecuteRunOptions): Promise<RunOutcome
 
     let answer: ApprovalAnswer;
     try {
-      answer = await approvals.wait(operation.id, context.signal ?? signal);
+      answer = await approvals.wait(operation.id, context.signal ?? runSignal);
     } finally {
       parked.delete(operation.id);
     }
@@ -280,74 +325,88 @@ export async function executeRun(options: ExecuteRunOptions): Promise<RunOutcome
   };
 
   // --- Drive the agent ----------------------------------------------------
-  saveRun({ status: "planning", startedAt: current.startedAt ?? now() });
-
-  let result: AgentResultMessage | null = null;
-  let failure: string | null = null;
-
+  // The outer `finally` releases the run's controls *after* the final record
+  // is written: until then a cancel must still find this run in flight
+  // rather than race its ending.
   try {
-    for await (const message of agent.run({
-      prompt: buildRunPrompt(task),
-      cwd: workspacePath,
-      model,
-      canUseTool,
-      ...(signal ? { signal } : {}),
-    })) {
-      if (message.type === "tool_result") {
-        const operationId = byToolUse.get(message.toolUseId);
-        if (!operationId) continue;
-        byToolUse.delete(message.toolUseId);
-        patchOperation(operationId, {
-          status: message.isError ? "failed" : "done",
-          stdout: message.stdout ?? message.text,
-          exitCode: message.exitCode,
-        });
-        continue;
+    saveRun({ status: "planning", startedAt: current.startedAt ?? now() });
+
+    let result: AgentResultMessage | null = null;
+    let failure: string | null = null;
+
+    try {
+      for await (const message of agent.run({
+        prompt: buildRunPrompt(task),
+        cwd: workspacePath,
+        model,
+        canUseTool,
+        ...(runSignal ? { signal: runSignal } : {}),
+      })) {
+        if (message.type === "tool_result") {
+          const operationId = byToolUse.get(message.toolUseId);
+          if (!operationId) continue;
+          byToolUse.delete(message.toolUseId);
+          patchOperation(operationId, {
+            status: message.isError ? "failed" : "done",
+            stdout: message.stdout ?? message.text,
+            exitCode: message.exitCode,
+          });
+          continue;
+        }
+        // The agent may report more than once in a resumed session; docs say
+        // to read the latest, so the last result wins.
+        result = message;
       }
-      // The agent may report more than once in a resumed session; docs say
-      // to read the latest, so the last result wins.
-      result = message;
+    } catch (error) {
+      failure =
+        error instanceof RunCancelledError
+          ? "cancelled_by_user"
+          : error instanceof ApprovalAbandonedError
+            ? "approval_abandoned"
+            : error instanceof Error
+              ? error.message
+              : String(error);
+    } finally {
+      // A run that ends while an operation is parked must not leave a
+      // promise waiting forever on a run nobody is driving any more.
+      for (const operationId of parked) approvals.abandon(operationId);
+      parked.clear();
     }
-  } catch (error) {
-    failure =
-      error instanceof ApprovalAbandonedError
-        ? "approval_abandoned"
-        : error instanceof Error
-          ? error.message
-          : String(error);
+
+    // Any operation still running when the stream ended never reported back.
+    for (const operationId of byToolUse.values()) {
+      const operation = recorded.get(operationId);
+      if (operation && (operation.status === "running" || operation.status === "proposed")) {
+        patchOperation(operationId, { status: "failed" });
+      }
+    }
+    byToolUse.clear();
+
+    const usage: RunUsage = result?.usage ?? emptyUsage();
+
+    if (failure === null && result === null) {
+      failure = "agent_ended_without_result";
+    } else if (failure === null && result && !result.ok) {
+      failure = result.errorMessage ?? "agent_failed";
+    }
+
+    // docs/09: "Cancel — the run stops. The changes stay." A cancelled run
+    // is not a failed one, whatever the agent was doing when it stopped, and
+    // it carries no `failureReason`: the status is the whole story.
+    const cancelled = control?.isCancelled() ?? false;
+
+    saveRun({
+      status: cancelled ? "cancelled" : failure === null ? "succeeded" : "failed",
+      failureReason: cancelled ? null : failure,
+      usage,
+      endedAt: now(),
+    });
+
+    return {
+      run: current,
+      operations: [...recorded.values()].sort((a, b) => a.seq - b.seq),
+    };
   } finally {
-    // A run that ends while an operation is parked must not leave a promise
-    // waiting forever on a run nobody is driving any more.
-    for (const operationId of parked) approvals.abandon(operationId);
-    parked.clear();
+    control?.release();
   }
-
-  // Any operation still running when the stream ended never reported back.
-  for (const operationId of byToolUse.values()) {
-    const operation = recorded.get(operationId);
-    if (operation && (operation.status === "running" || operation.status === "proposed")) {
-      patchOperation(operationId, { status: "failed" });
-    }
-  }
-  byToolUse.clear();
-
-  const usage: RunUsage = result?.usage ?? emptyUsage();
-
-  if (failure === null && result === null) {
-    failure = "agent_ended_without_result";
-  } else if (failure === null && result && !result.ok) {
-    failure = result.errorMessage ?? "agent_failed";
-  }
-
-  saveRun({
-    status: failure === null ? "succeeded" : "failed",
-    failureReason: failure,
-    usage,
-    endedAt: now(),
-  });
-
-  return {
-    run: current,
-    operations: [...recorded.values()].sort((a, b) => a.seq - b.seq),
-  };
 }

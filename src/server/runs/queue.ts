@@ -42,6 +42,7 @@ import type { Run, RunTrigger } from "../../shared/runs.js";
 import type { Project, Task } from "../../shared/types.js";
 import type { Agent } from "./agent.js";
 import type { ApprovalRegistry } from "./approvals.js";
+import type { RunControlRegistry } from "./control.js";
 import { resolveRunModel, type ResolvedRunModel } from "./routing.js";
 import { executeRun, type RunOutcome } from "./runner.js";
 
@@ -86,6 +87,11 @@ export interface RunQueueOptions {
   db: Database.Database;
   semaphore: WriterSemaphore;
   approvals: ApprovalRegistry;
+  /**
+   * Where pause, resume and cancel reach a run the queue started (T56).
+   * Handed straight to the runner, which registers each run it drives.
+   */
+  controls?: RunControlRegistry;
   /** One {@link Agent} per run. Tests pass a fake; production passes the SDK. */
   createAgent?: () => Agent;
   /**
@@ -151,6 +157,7 @@ export function createRunQueue(options: RunQueueOptions): RunQueue {
     db,
     semaphore,
     approvals,
+    controls,
     createAgent = lazySdkAgent,
     autoStart = true,
     now = () => new Date().toISOString(),
@@ -293,6 +300,7 @@ export function createRunQueue(options: RunQueueOptions): RunQueue {
         project: freshProject,
         agent: createAgent(),
         approvals,
+        ...(controls ? { controls } : {}),
         model: routed.model,
         now,
         newId,
@@ -307,9 +315,14 @@ export function createRunQueue(options: RunQueueOptions): RunQueue {
   function handleStartFailure(runId: string, error: unknown): void {
     const code = error instanceof ApiError ? error.code : null;
     if (code === "DEPENDENCY_NOT_MET") return;
-    abandoned.add(runId);
 
     const run = getRunById(db, runId);
+    // A run someone paused while it waited for a writer slot left the queue
+    // for a reason that reverses itself: resume puts it back (T56), and the
+    // next dispatch must consider it again. Everything else here is final.
+    if (run?.status === "paused") return;
+
+    abandoned.add(runId);
     if (!run || run.status !== "queued") return;
     updateRun(db, {
       ...run,
