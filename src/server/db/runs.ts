@@ -147,6 +147,21 @@ export function listRunsForProject(db: Database.Database, projectId: string): Ru
   return rows.map(rowToRun);
 }
 
+/**
+ * The queued runs of a project, oldest first — the order the queue serves
+ * them in (src/server/runs/queue.ts). `rowid` breaks the tie: two runs
+ * enqueued in the same millisecond carry the same `createdAt`, and the
+ * queue must still serve the one that arrived first.
+ */
+export function listQueuedRuns(db: Database.Database, projectId: string): Run[] {
+  const rows = db
+    .prepare(
+      "SELECT * FROM runs WHERE projectId = ? AND status = 'queued' ORDER BY createdAt ASC, rowid ASC",
+    )
+    .all(projectId) as RunRow[];
+  return rows.map(rowToRun);
+}
+
 /** The children of an orchestrated run (docs/09 "Orchestration for an epic"). */
 export function listChildRuns(db: Database.Database, parentRunId: string): Run[] {
   const rows = db

@@ -14,11 +14,20 @@ import { projectRoutes } from "./routes/projects.js";
 import { runRoutes } from "./routes/runs.js";
 import { schemaRoutes } from "./routes/schema.js";
 import { taskRoutes } from "./routes/tasks.js";
+import { createApprovalRegistry } from "./runs/approvals.js";
+import { createRunQueue, type RunQueue } from "./runs/queue.js";
+import { createWriterSemaphore } from "./safety/semaphore.js";
+import type { Agent } from "./runs/agent.js";
 
 declare module "fastify" {
   interface FastifyInstance {
     /** The SSE connection registry behind `GET /api/events`. */
     sse: SseHub;
+    /**
+     * The run queue (src/server/runs/queue.ts). Decorated so the control
+     * endpoints (T56) and the tests reach the same instance the routes use.
+     */
+    runQueue: RunQueue;
   }
 }
 
@@ -61,6 +70,16 @@ export interface CreateAppOptions {
    * the 25 s of specs/06; a test shortens it rather than waiting.
    */
   sseHeartbeatMs?: number;
+
+  /**
+   * The run queue's seams (src/server/runs/queue.ts). A test passes a
+   * scripted agent — and often `autoStart: false`, so a queued run stays
+   * queued and nothing touches a workspace.
+   */
+  runs?: {
+    createAgent?: () => Agent;
+    autoStart?: boolean;
+  };
 }
 
 /**
@@ -100,6 +119,25 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     return db;
   };
 
+  // One queue, one writer semaphore and one approval registry per app: the
+  // semaphore's counts (docs/10 §6) and the parked approvals (docs/10 §4)
+  // are process state, not request state. Built on the first request that
+  // needs it, for the same reason the database is opened lazily.
+  const approvals = createApprovalRegistry();
+  const semaphore = createWriterSemaphore();
+  let queue: RunQueue | null = null;
+  const getQueue = (): RunQueue => {
+    queue ??= createRunQueue({
+      db: getDb(),
+      semaphore,
+      approvals,
+      ...(options.runs?.createAgent ? { createAgent: options.runs.createAgent } : {}),
+      ...(options.runs?.autoStart === undefined ? {} : { autoStart: options.runs.autoStart }),
+    });
+    return queue;
+  };
+  app.decorate("runQueue", { getter: getQueue });
+
   app.addHook("onClose", async () => {
     unsubscribe?.();
     unsubscribe = null;
@@ -114,7 +152,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   app.register(projectRoutes, { getDb });
   app.register(schemaRoutes, { getDb });
   app.register(taskRoutes, { getDb });
-  app.register(runRoutes, { getDb });
+  app.register(runRoutes, { getDb, getQueue });
 
   if (existsSync(staticDir)) {
     app.register(fastifyStatic, {
