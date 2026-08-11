@@ -222,9 +222,10 @@ describe("the endpoint hands the run to the queue", () => {
       url: `/api/projects/${project.slug}/tasks/${task.key}`,
       headers: HEADERS,
     });
-    // T55: the task moves to `executing` when the run starts. Advancing it
-    // when the run ends is T61's.
-    expect((after.json().data as Task).status).toBe("executing");
+    // T55: the task moves to `executing` when the run starts. T61 advances
+    // it again once the run succeeds — into the project's default next
+    // gate, `testing`.
+    expect((after.json().data as Task).status).toBe("testing");
   });
 
   it("leaves a dependency-blocked run in the queue", async () => {

@@ -24,8 +24,19 @@
  * dispatcher, and answers.
  *
  * Out of scope, on purpose: the control endpoints (T56), git (T58), the
- * streams (T59), budget caps (T63) and advancing the task when the run ends
- * (T61) — a finished run leaves the task in `executing` here.
+ * streams (T59), and budget caps (T63).
+ *
+ * What happens when a run ends belongs here too (docs/04
+ * "Failure moves the task back to `executing`", T61):
+ *
+ * - `succeeded` → `advance()` the task into the next enabled gate
+ *   (`testing`/`ai_review`/`manual_review`/`done`) — the "run" gate of
+ *   `executing` is exactly this, ending without error.
+ * - `failed` → `fail()` the task, which is a no-op move back to the status
+ *   it is already in (`executing`) that stores the reason for the next
+ *   run's brief (`buildRunPrompt`, src/server/runs/runner.ts).
+ * - `cancelled` → nothing. docs/09: "Cancel — the run stops. The changes
+ *   stay." It is not a failure, and the task is already `executing`.
  */
 
 import { randomUUID } from "node:crypto";
@@ -37,6 +48,7 @@ import { ApiError } from "../errors.js";
 import type { WriterSemaphore } from "../safety/semaphore.js";
 import { unmetDependencies } from "../tasks/dependencies.js";
 import { closedAtFor } from "../../shared/pipeline.js";
+import { advance, fail } from "../tasks/pipeline.js";
 import type { Run, RunTrigger } from "../../shared/runs.js";
 import type { Project, Task } from "../../shared/types.js";
 import type { Agent } from "./agent.js";
@@ -223,6 +235,33 @@ export function createRunQueue(options: RunQueueOptions): RunQueue {
     });
   }
 
+  /**
+   * The pipeline hookup (T61): what a finished run does to the task it ran
+   * for. Applied once the run reaches a terminal status, so a paused or
+   * awaiting-approval run — which is not finished — leaves the task alone.
+   */
+  function applyRunOutcome(project: Project, run: Run): void {
+    const task = getTaskById(db, run.taskId);
+    // The task may have been trashed while the run was in flight; there is
+    // nothing left to advance.
+    if (!task) return;
+
+    if (run.status === "succeeded") {
+      const timestamp = nextTimestamp(task.updatedAt);
+      updateTask(db, { ...advance(task, project.statuses, timestamp), updatedAt: timestamp });
+      return;
+    }
+
+    if (run.status === "failed") {
+      const timestamp = nextTimestamp(task.updatedAt);
+      const reason = run.failureReason?.trim() || "The run failed";
+      updateTask(db, { ...fail(task, reason, timestamp), updatedAt: timestamp });
+      return;
+    }
+
+    // `cancelled`, or any other status: the task stays exactly where it is.
+  }
+
   async function start(runId: string): Promise<RunOutcome> {
     const run = getRunById(db, runId);
     if (!run) {
@@ -298,7 +337,7 @@ export function createRunQueue(options: RunQueueOptions): RunQueue {
 
       const executing = markExecuting(freshTask);
 
-      return executeRun({
+      const outcome = await executeRun({
         db,
         run: current,
         task: executing,
@@ -311,6 +350,10 @@ export function createRunQueue(options: RunQueueOptions): RunQueue {
         now,
         newId,
       });
+
+      applyRunOutcome(freshProject, outcome.run);
+
+      return outcome;
     });
   }
 

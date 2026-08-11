@@ -245,7 +245,7 @@ describe("start", () => {
     expect(getTaskById(db, task.id)?.status).toBe("ready");
   });
 
-  it("starts once the dependency is done, and moves the task to executing", async () => {
+  it("starts once the dependency is done, and advances the task when the run ends", async () => {
     const project = makeProject();
     const blocker = makeTask(project);
     const task = makeTask(project, { dependsOn: [blocker.id] });
@@ -259,7 +259,9 @@ describe("start", () => {
 
     expect(outcome.run.status).toBe("succeeded");
     expect(outcome.run.startedAt).not.toBeNull();
-    expect(getTaskById(db, task.id)?.status).toBe("executing");
+    // T61: a successful run advances the task into the next enabled gate —
+    // `testing`, for the project's default pipeline.
+    expect(getTaskById(db, task.id)?.status).toBe("testing");
     expect(agents).toHaveLength(1);
     expect(agents[0]!.requests[0]?.cwd).toBe(workspace);
     expect(getRunById(db, run.id)?.usage.inputTokens).toBe(10);
@@ -292,15 +294,20 @@ describe("start", () => {
     expectApiError(await rejection(queue.start(run.id)), "RUN_NOT_QUEUED", 409);
   });
 
-  it("keeps a failure reason the last gate left on the task", async () => {
+  it("carries the last gate's failure reason into the run's prompt, then clears it once the run advances the task (T61)", async () => {
     const project = makeProject();
     const task = makeTask(project, { status: "executing", failureReason: "two tests fail" });
-    const { queue } = makeQueue({ autoStart: false });
+    const { queue, agents } = makeQueue({ autoStart: false });
     const { run } = queue.enqueue({ project, task });
 
     await queue.start(run.id);
 
-    expect(getTaskById(db, task.id)?.failureReason).toBe("two tests fail");
+    // docs/04: "The next run receives the reason as part of its
+    // instructions."
+    expect(agents[0]!.requests[0]?.prompt).toContain("two tests fail");
+    // The run succeeded, so the gate is satisfied: the reason moves on
+    // with the task, it does not linger past the run that carried it.
+    expect(getTaskById(db, task.id)?.failureReason).toBeNull();
   });
 });
 
@@ -349,7 +356,9 @@ describe("the writer semaphore gates starts", () => {
     await Promise.all([a, b]);
 
     expect(gate.started).toHaveLength(2);
-    expect(getTaskById(db, second.id)?.status).toBe("executing");
+    // Both runs succeed once released; T61 advances each task past
+    // `executing` into the project's default next gate, `testing`.
+    expect(getTaskById(db, second.id)?.status).toBe("testing");
   });
 
   it("capacity 2: both runs of a project execute at once", async () => {
@@ -412,7 +421,8 @@ describe("dispatch", () => {
     await queue.idle();
 
     expect(getRunById(db, blockedRun.id)?.status).toBe("succeeded");
-    expect(getTaskById(db, blocked.id)?.status).toBe("executing");
+    // T61: the run succeeded, so the task advanced past `executing`.
+    expect(getTaskById(db, blocked.id)?.status).toBe("testing");
   });
 
   it("fails a run it can never start, and does not retry it", async () => {

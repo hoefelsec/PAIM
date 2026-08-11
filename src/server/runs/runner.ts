@@ -31,7 +31,10 @@
  *
  * Out of scope here, on purpose: the queue and model routing (T55), git
  * (T58), the streams (T59), and advancing the task's status when the run
- * ends (T61).
+ * ends — that is the run queue's job (src/server/runs/queue.ts, T61), since
+ * it is the one that knows the project's enabled statuses. This module does
+ * carry the other half of T61's failure loop: the stored gate-failure
+ * reason is folded into the next run's brief by `buildRunPrompt` below.
  */
 
 import { randomUUID } from "node:crypto";
@@ -98,8 +101,13 @@ export interface RunOutcome {
 /**
  * The brief the model receives. Deliberately plain: the task's identity, its
  * description, and the words the user originally wrote (docs/02 "Task"
- * `sourcePrompt`). Gate-failure context is folded in by the pipeline hookup
- * (T61), not here.
+ * `sourcePrompt`).
+ *
+ * docs/04 "Failure moves the task back to `executing`": "The service
+ * attaches the reason. The next run receives the reason as part of its
+ * instructions." That reason lives on `task.failureReason` — the run queue
+ * stores it there when a gate fails (T61) — so a run built from a task that
+ * carries one closes the loop by putting it in the brief.
  */
 export function buildRunPrompt(task: Task): string {
   const sections: string[] = [`Task ${task.key}: ${task.title}`];
@@ -109,6 +117,10 @@ export function buildRunPrompt(task: Task): string {
   const source = task.sourcePrompt.trim();
   if (source !== "" && source !== task.description.trim()) {
     sections.push(`Original request:\n${source}`);
+  }
+  const failureReason = task.failureReason?.trim();
+  if (failureReason) {
+    sections.push(`The previous attempt did not pass its gate:\n${failureReason}`);
   }
   return sections.join("\n\n");
 }
