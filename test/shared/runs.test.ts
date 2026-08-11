@@ -5,6 +5,7 @@ import {
   RUN_STATUSES,
   TERMINAL_RUN_STATUSES,
   isTerminalRunStatus,
+  reversibleByRestore,
   riskForKind,
   type OperationKind,
   type OperationRisk,
@@ -39,6 +40,35 @@ describe("riskForKind", () => {
 
   it("refuses a kind that is not a tool", () => {
     expect(() => riskForKind("sudo" as OperationKind)).toThrow(/unreachable operation kind/);
+  });
+});
+
+describe("reversibleByRestore", () => {
+  // docs/09 "What Restore reverts": file writes and edits come back, and the
+  // files a run created are deleted. A shell command's side effects —
+  // packages, services, migrations, pushes — are in no restore point.
+  it("says a file operation comes back", () => {
+    expect(reversibleByRestore("write")).toBe(true);
+    expect(reversibleByRestore("edit")).toBe(true);
+  });
+
+  it("says a read changed nothing to revert", () => {
+    expect(reversibleByRestore("read")).toBe(true);
+    expect(reversibleByRestore("glob")).toBe(true);
+    expect(reversibleByRestore("grep")).toBe(true);
+  });
+
+  it("says a shell command does not", () => {
+    expect(reversibleByRestore("bash")).toBe(false);
+  });
+
+  it("covers every operation kind", () => {
+    for (const kind of OPERATION_KINDS) {
+      expect(() => reversibleByRestore(kind)).not.toThrow();
+    }
+    expect(() => reversibleByRestore("sudo" as OperationKind)).toThrow(
+      /unreachable operation kind/,
+    );
   });
 });
 

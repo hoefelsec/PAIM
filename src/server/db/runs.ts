@@ -13,6 +13,7 @@
 
 import type Database from "better-sqlite3";
 import {
+  reversibleByRestore,
   riskForKind,
   type Operation,
   type OperationDraft,
@@ -204,9 +205,11 @@ const OPERATION_COLUMNS = [
 ] as const;
 
 /**
- * docs/09 "Records": `risk` is derived from `kind`. It is computed here on
- * every read rather than stored, so no row can ever carry a risk that
- * disagrees with the operation it describes.
+ * docs/09 "Records": `risk` is derived from `kind`, and so is whether
+ * Restore can undo the operation (docs/09 "What Restore reverts"). Both are
+ * computed here on every read rather than stored, so no row can ever carry a
+ * risk — or a promise of reversibility — that disagrees with the operation
+ * it describes.
  */
 export function rowToOperation(row: OperationRow): Operation {
   const kind = row.kind as Operation["kind"];
@@ -216,6 +219,7 @@ export function rowToOperation(row: OperationRow): Operation {
     seq: row.seq,
     kind,
     risk: riskForKind(kind),
+    reversible: reversibleByRestore(kind),
     summary: row.summary,
     status: row.status as Operation["status"],
     diff: row.diff,
@@ -260,6 +264,7 @@ export function insertOperation(db: Database.Database, draft: OperationDraft): O
     ...draft,
     seq: nextSeq(db, draft.runId),
     risk: riskForKind(draft.kind),
+    reversible: reversibleByRestore(draft.kind),
   };
   const names = OPERATION_COLUMNS.join(", ");
   const placeholders = OPERATION_COLUMNS.map((c) => `@${c}`).join(", ");
@@ -272,10 +277,14 @@ export function insertOperation(db: Database.Database, draft: OperationDraft): O
 /**
  * Rewrites an operation as it moves through its lifecycle (`proposed` →
  * `approved` → `running` → `done`, and the other paths). `id`, `runId` and
- * `seq` never change; `risk` follows `kind`.
+ * `seq` never change; `risk` and `reversible` follow `kind`.
  */
 export function updateOperation(db: Database.Database, operation: Operation): Operation {
-  const next: Operation = { ...operation, risk: riskForKind(operation.kind) };
+  const next: Operation = {
+    ...operation,
+    risk: riskForKind(operation.kind),
+    reversible: reversibleByRestore(operation.kind),
+  };
   const assignments = OPERATION_COLUMNS.filter((c) => c !== "id" && c !== "runId" && c !== "seq")
     .map((c) => `${c} = @${c}`)
     .join(", ");

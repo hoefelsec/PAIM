@@ -9,6 +9,7 @@
  *   POST /api/runs/:run/pause
  *   POST /api/runs/:run/resume
  *   POST /api/runs/:run/cancel                    { restore: true | false }
+ *   POST /api/runs/:run/restore                   revert the workspace
  *
  * The POST that starts a run enqueues and answers: it never waits for the
  * agent ("no endpoint blocks on a run", specs/README). The queue behind it —
@@ -24,13 +25,18 @@
  * operation, never mid-operation" (docs/09). None of them waits for the run
  * to notice.
  *
- * `POST /api/runs/:run/restore` and the streams are later work
- * (specs/09-ai-run.md): until the restore work lands, `cancel` refuses
- * `{restore: true}` when the run has nothing to revert to.
+ * Restore is the third of docs/09's three controls, and the different one:
+ * pause and cancel act on the *run*, Restore acts on the *workspace*. It is
+ * offered "while the task is not finished" and disappears when the task
+ * reaches `done`. `POST /api/runs/:run/cancel {restore: true}` is the same
+ * revert, decided in the same request as the stop.
+ *
+ * The run streams are later work (specs/09-ai-run.md).
  */
 
 import type Database from "better-sqlite3";
 import type { FastifyInstance, FastifyPluginOptions } from "fastify";
+import { getProjectById } from "../db/projects.js";
 import {
   getOperationById,
   getRunById,
@@ -38,6 +44,7 @@ import {
   listRunsForTask,
   updateRun,
 } from "../db/runs.js";
+import { getTaskById } from "../db/tasks.js";
 import { listEnvelope } from "../envelope.js";
 import { ApiError } from "../errors.js";
 import { asBoolean, asNonEmptyString, asObject, invalid } from "../validate.js";
@@ -45,6 +52,7 @@ import { isTerminalRunStatus, RUN_TRIGGERS, type RunTrigger } from "../../shared
 import type { ApprovalRegistry } from "../runs/approvals.js";
 import type { RunControlRegistry } from "../runs/control.js";
 import type { RunQueue } from "../runs/queue.js";
+import { restoreWorkspace, type RestoreResult } from "../runs/restore.js";
 import { requireProject } from "./projects.js";
 import { requireTask } from "./tasks.js";
 import type { Operation, Run, RunView } from "../../shared/runs.js";
@@ -161,15 +169,15 @@ function requireParkedOperation(
 }
 
 /**
- * docs/09 "Restore": a run has a restore point only once it captured one,
- * and a capture that failed leaves one that is not available, "with a stored
- * reason". Capture and the revert itself are the restore work's
- * (specs/09-ai-run.md); what this endpoint owes the caller now is a straight
- * refusal instead of a silent *Cancel and keep the changes*.
+ * docs/09 "Restore": a run has a restore point only once it captured one —
+ * a run that wrote nothing has nothing to revert — and a capture that failed
+ * leaves one that is not available, "with a stored reason". Either way the
+ * caller gets a straight refusal instead of a silent *Cancel and keep the
+ * changes*.
  */
-function requireRestorePoint(run: Run): void {
+function requireRestorePoint(run: Run): NonNullable<Run["restorePoint"]> {
   const point = run.restorePoint;
-  if (point !== null && point.available) return;
+  if (point !== null && point.available) return point;
   throw new ApiError(
     "NO_RESTORE_POINT",
     422,
@@ -180,6 +188,47 @@ function requireRestorePoint(run: Run): void {
           point.reason ?? "the restore point could not be captured"
         }`,
   );
+}
+
+/**
+ * docs/09 "Restore": "The service offers Restore while the task is not
+ * finished: during `executing`, `testing`, and review. The control
+ * disappears when the task reaches `done`. At that point the changes are the
+ * product of the task."
+ */
+function requireRestorableTask(db: Database.Database, run: Run): void {
+  const task = getTaskById(db, run.taskId);
+  if (task === null || task.status !== "done") return;
+  throw new ApiError(
+    "RESTORE_UNAVAILABLE",
+    409,
+    { run: run.id, task: task.key, status: task.status },
+    `Task "${task.key}" is done; the changes of run "${run.id}" are the product of the task`,
+  );
+}
+
+/**
+ * Reverts the workspace to the state before this run (docs/09 "Restore").
+ *
+ * Every refusal is decided before a single byte moves, and — where cancel
+ * calls this — before the run is stopped, so a caller who asked for *Cancel
+ * and restore* never gets half of it.
+ */
+function performRestore(db: Database.Database, run: Run): RestoreResult {
+  const point = requireRestorePoint(run);
+  requireRestorableTask(db, run);
+
+  const project = getProjectById(db, run.projectId);
+  if (project === null || project.workspacePath === null || project.workspacePath === "") {
+    throw new ApiError(
+      "NO_WORKSPACE",
+      422,
+      { run: run.id, project: run.projectId },
+      `The project of run "${run.id}" has no workspace path to restore`,
+    );
+  }
+
+  return restoreWorkspace(point, project.workspacePath);
 }
 
 export async function runRoutes(app: FastifyInstance, options: RunRoutesOptions): Promise<void> {
@@ -348,7 +397,10 @@ export async function runRoutes(app: FastifyInstance, options: RunRoutesOptions)
 
     // Refused before the run is stopped: a caller who asked for *Cancel and
     // restore* must not silently get *Cancel and keep the changes*.
-    if (restore) requireRestorePoint(run);
+    if (restore) {
+      requireRestorePoint(run);
+      requireRestorableTask(db, run);
+    }
 
     // Stops the agent now: the signal aborts, a parked approval comes out of
     // its wait, and the next boundary refuses to propose anything.
@@ -358,14 +410,51 @@ export async function runRoutes(app: FastifyInstance, options: RunRoutesOptions)
     // answer to this request is the truth even for a run no runner is
     // driving (one still in the queue). The runner writes the same status
     // when it unwinds.
+    //
+    // Re-read first: the run may have captured one more file between the
+    // start of this handler and the abort above, and writing the stale copy
+    // back would drop that path from the restore point — the one thing the
+    // revert below cannot afford to lose.
+    const latest = requireRun(db, run.id);
     const cancelled = updateRun(db, {
-      ...run,
+      ...latest,
       status: "cancelled",
-      endedAt: run.endedAt ?? new Date().toISOString(),
+      endedAt: latest.endedAt ?? new Date().toISOString(),
     });
 
-    // docs/09: "Cancel and Restore are different actions." The revert is the
-    // restore work's (specs/09-ai-run.md); the cancel is done either way.
-    return { data: cancelled, restore: { requested: restore, performed: false } };
+    // docs/09: "Cancel and Restore are different actions" — the cancel is
+    // done either way; the revert only when the dialog's third choice was
+    // taken.
+    if (!restore) {
+      return { data: cancelled, restore: { requested: false, performed: false } };
+    }
+
+    const result = performRestore(db, cancelled);
+    return {
+      data: requireRun(db, cancelled.id),
+      restore: { requested: true, performed: true, ...result },
+    };
+  });
+
+  // --- Restore (docs/09 "Restore") ----------------------------------------
+
+  app.post<{ Params: { run: string } }>("/api/runs/:run/restore", async (req) => {
+    const db = getDb();
+    const run = requireRun(db, req.params.run);
+
+    // A run still in flight is still writing. docs/09 gives that case its
+    // own control: *Cancel and restore*, which stops the agent in the same
+    // request that reverts the workspace.
+    if (!isTerminalRunStatus(run.status)) {
+      throw new ApiError(
+        "RUN_NOT_FINISHED",
+        409,
+        { run: run.id, status: run.status },
+        `Run "${run.id}" is "${run.status}"; cancel it with {"restore": true} to stop and revert`,
+      );
+    }
+
+    const result = performRestore(db, run);
+    return { data: runView(db, run), restore: { performed: true, ...result } };
   });
 }

@@ -23,11 +23,15 @@
  * - **Records.** Each operation is written when it is proposed — with its
  *   diff, for a write or an edit — and updated when its result arrives,
  *   with stdout and the exit code.
+ * - **Restore.** The moment before the first write is allowed to happen, the
+ *   run captures its restore point (src/server/runs/restore.ts, docs/09
+ *   "Restore"), and every later write hands its target over too. A capture
+ *   that fails does not stop the run: Restore is disabled with a reason.
  * - **Usage.** Tokens and cost come from the agent's result message.
  *
- * Out of scope here, on purpose: the queue and model routing (T55), restore
- * points (T57), git (T58), the streams (T59), and advancing the task's
- * status when the run ends (T61).
+ * Out of scope here, on purpose: the queue and model routing (T55), git
+ * (T58), the streams (T59), and advancing the task's status when the run
+ * ends (T61).
  */
 
 import { randomUUID } from "node:crypto";
@@ -51,6 +55,7 @@ import {
   type ApprovalRegistry,
 } from "./approvals.js";
 import { RunCancelledError, type RunControlRegistry } from "./control.js";
+import { createRestoreRecorder } from "./restore.js";
 import { buildDiff, describeTool, summarizeOperation } from "./tools.js";
 
 export interface ExecuteRunOptions {
@@ -73,6 +78,12 @@ export interface ExecuteRunOptions {
    */
   model?: string | null;
   signal?: AbortSignal;
+  /**
+   * Where `data/restore/<runId>` is rooted (docs/09 "Restore"). Defaults to
+   * `data/restore` at the repo root; a test points it at a temp directory so
+   * no suite writes into `data/`.
+   */
+  restoreRoot?: string;
   /** Injectable clock and id source, so tests get stable records. */
   now?: () => string;
   newId?: () => string;
@@ -132,6 +143,7 @@ export async function executeRun(options: ExecuteRunOptions): Promise<RunOutcome
     controls,
     model = null,
     signal,
+    restoreRoot,
     now = () => new Date().toISOString(),
     newId = () => randomUUID(),
   } = options;
@@ -163,6 +175,17 @@ export async function executeRun(options: ExecuteRunOptions): Promise<RunOutcome
   const byToolUse = new Map<string, string>();
   /** Operations parked in the approval registry right now. */
   const parked = new Set<string>();
+  /**
+   * docs/09 "Restore": "Each run captures a restore point before its first
+   * write." The recorder is lazy, so a run that only reads captures nothing
+   * and leaves `restorePoint` null.
+   */
+  const restore = createRestoreRecorder({
+    runId: options.run.id,
+    workspacePath,
+    ...(restoreRoot === undefined ? {} : { restoreRoot }),
+    now,
+  });
 
   function saveRun(patch: Partial<Run>): void {
     current = { ...current, ...patch };
@@ -246,6 +269,8 @@ export async function executeRun(options: ExecuteRunOptions): Promise<RunOutcome
     // --- The target, canonicalized and confined (docs/10 §2) -------------
     let policyOperation: PolicyOperation;
     let display: string;
+    /** The absolute file the tool will change; null unless it writes one. */
+    let target: string | null = null;
 
     if (described.command !== null) {
       display = normalizeCommand(described.command);
@@ -271,10 +296,25 @@ export async function executeRun(options: ExecuteRunOptions): Promise<RunOutcome
       // so feeding `confined.path` here would silently disable exactly the
       // deny-list entries docs/10 §3 says cannot be overridden.
       policyOperation = { kind: "file", path: display };
+      if (described.kind === "write" || described.kind === "edit") {
+        target = confined.path;
+      }
     }
 
     const summary = summarizeOperation(described.kind, display);
     const diff = buildDiff(described.kind, input, display);
+
+    /**
+     * docs/09 "Restore": the point is captured before the run's first write,
+     * and every later write hands its target over so its original bytes — or
+     * its absence — are kept. Called once permission is settled and before
+     * the tool is allowed to run, which is the last moment the file still
+     * holds what the run found.
+     */
+    function captureRestorePoint(): void {
+      if (target === null) return;
+      saveRun({ restorePoint: restore.beforeWrite(target) });
+    }
 
     // --- The policy (docs/10 §3–§5) --------------------------------------
     const decision = decide(policyOperation, project.safety, task.safety?.mode ?? null);
@@ -289,6 +329,7 @@ export async function executeRun(options: ExecuteRunOptions): Promise<RunOutcome
     }
 
     if (decision === "allow") {
+      captureRestorePoint();
       const operation = addOperation(described.kind, summary, "running", diff);
       byToolUse.set(context.toolUseId, operation.id);
       setStatus("executing");
@@ -314,6 +355,10 @@ export async function executeRun(options: ExecuteRunOptions): Promise<RunOutcome
       setStatus("executing");
       return { behavior: "deny", message: answer.reason };
     }
+
+    // The user said yes; the file has not changed yet. This is the moment
+    // the restore point has to hold.
+    captureRestorePoint();
 
     // Both transitions are written: `approved` is the answer the user gave
     // and `running` is what happens next, and docs/09 "Records" walks the

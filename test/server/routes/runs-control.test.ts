@@ -811,13 +811,17 @@ describe("POST /api/runs/:run/cancel", () => {
     const task = await createTask(project.slug);
     const run = await startRun(project.slug, task.key);
 
+    // A point that captured nothing: the run wrote no file, so the revert
+    // has nothing to put back and nothing to delete. What the revert *does*
+    // with a point that holds bytes is the restore suite's
+    // (test/server/runs/restore.test.ts).
     updateRun(db, {
       ...getRunById(db, run.id)!,
       restorePoint: {
-        method: "git",
+        method: "snapshot",
         available: true,
         reason: null,
-        head: "0123456789abcdef0123456789abcdef01234567",
+        head: null,
         stash: null,
         snapshotDir: null,
         createdPaths: [],
@@ -829,7 +833,13 @@ describe("POST /api/runs/:run/cancel", () => {
 
     expect(res.statusCode).toBe(200);
     expect((res.json().data as Run).status).toBe("cancelled");
-    expect(res.json().restore).toEqual({ requested: true, performed: false });
+    expect(res.json().restore).toEqual({
+      requested: true,
+      performed: true,
+      method: "snapshot",
+      restored: [],
+      deleted: [],
+    });
   });
 
   it("refuses a restore flag that is not a boolean", async () => {

@@ -80,6 +80,12 @@ export interface CreateAppOptions {
   runs?: {
     createAgent?: () => Agent;
     autoStart?: boolean;
+    /**
+     * Where `data/restore/<runId>` is rooted (docs/09 "Restore"). Defaults
+     * to `data/restore` at the repo root; a test points it at a temp
+     * directory so no suite writes into `data/`.
+     */
+    restoreRoot?: string;
   };
 }
 
@@ -137,6 +143,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       controls,
       ...(options.runs?.createAgent ? { createAgent: options.runs.createAgent } : {}),
       ...(options.runs?.autoStart === undefined ? {} : { autoStart: options.runs.autoStart }),
+      ...(options.runs?.restoreRoot === undefined ? {} : { restoreRoot: options.runs.restoreRoot }),
     });
     return queue;
   };

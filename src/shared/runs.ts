@@ -97,13 +97,41 @@ export function riskForKind(kind: OperationKind): OperationRisk {
   }
 }
 
+/**
+ * docs/09 "What Restore reverts": the restore point holds file bytes, a
+ * commit and a stash — nothing else. A shell command can install a package,
+ * restart a service, apply a migration or push to a remote, and none of that
+ * comes back. So an operation's reversibility, like its {@link riskForKind
+ * risk}, follows from its kind and is never stored: no row can claim a bash
+ * command is something Restore undoes.
+ *
+ * docs/09: "An operation that Restore cannot revert says so on its own row."
+ */
+export function reversibleByRestore(kind: OperationKind): boolean {
+  switch (kind) {
+    case "read":
+    case "glob":
+    case "grep":
+    case "write":
+    case "edit":
+      return true;
+    case "bash":
+      return false;
+    default: {
+      const exhaustive: never = kind;
+      throw new Error(`unreachable operation kind: ${String(exhaustive)}`);
+    }
+  }
+}
+
 /** docs/09 "Restore": a git repository, or per-file byte snapshots. */
 export const RESTORE_METHODS = ["git", "snapshot"] as const;
 export type RestoreMethod = (typeof RESTORE_METHODS)[number];
 
 /**
- * What a run captured before its first write (docs/09 "Restore"). Capture
- * belongs to the restore work; this is the record it leaves behind.
+ * What a run captured before its first write (docs/09 "Restore"). The
+ * capture itself is src/server/runs/restore.ts; this is the record it
+ * leaves behind.
  *
  * A run whose capture failed still gets a restore point — with
  * `available: false` and the `reason` the interface shows in the position
@@ -121,9 +149,17 @@ export interface RestorePoint {
   head: string | null;
   /** git: the object id of `git stash create`, null when the tree was clean. */
   stash: string | null;
-  /** snapshot: the directory under `data/restore/<runId>` holding the original bytes. */
+  /**
+   * The directory under `data/restore/<runId>` holding the original bytes.
+   * The whole story in `snapshot` mode; in `git` mode it holds only the
+   * files git does not track, and stays null when there are none.
+   */
   snapshotDir: string | null;
-  /** snapshot: the paths the run created, which Restore deletes. */
+  /**
+   * Workspace-relative paths the run created, which Restore deletes. Kept in
+   * both modes: naming them is exact, where `git clean` would also sweep up
+   * files the user made while the run was working.
+   */
   createdPaths: string[];
   capturedAt: string | null;
 }
@@ -147,6 +183,12 @@ export interface Operation {
   kind: OperationKind;
   /** Derived from `kind` — see {@link riskForKind}. */
   risk: OperationRisk;
+  /**
+   * Whether Restore undoes what this operation did. Derived from `kind` —
+   * see {@link reversibleByRestore}; false marks the row docs/09 says must
+   * state its own limit.
+   */
+  reversible: boolean;
   /** One line, as the run log shows it: `Edit src/api/tasks.ts`. */
   summary: string;
   status: OperationStatus;
@@ -162,10 +204,10 @@ export interface Operation {
 
 /**
  * An operation as it is handed to the storage layer: everything except the
- * risk, which is derived, and the position, which the storage layer
- * assigns.
+ * derived fields (risk, reversibility) and the position, which the storage
+ * layer assigns.
  */
-export type OperationDraft = Omit<Operation, "risk" | "seq">;
+export type OperationDraft = Omit<Operation, "risk" | "reversible" | "seq">;
 
 /** One run of one task (docs/09 "Records"). */
 export interface Run {

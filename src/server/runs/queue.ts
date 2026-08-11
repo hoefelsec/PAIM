@@ -23,10 +23,9 @@
  * blocks on a run" (specs/README) — so the route enqueues, kicks the
  * dispatcher, and answers.
  *
- * Out of scope, on purpose: the control endpoints (T56), restore points
- * (T57), git (T58), the streams (T59), budget caps (T63) and advancing the
- * task when the run ends (T61) — a finished run leaves the task in
- * `executing` here.
+ * Out of scope, on purpose: the control endpoints (T56), git (T58), the
+ * streams (T59), budget caps (T63) and advancing the task when the run ends
+ * (T61) — a finished run leaves the task in `executing` here.
  */
 
 import { randomUUID } from "node:crypto";
@@ -99,6 +98,11 @@ export interface RunQueueOptions {
    * only exercises the enqueue half turns it off.
    */
   autoStart?: boolean;
+  /**
+   * Where `data/restore/<runId>` is rooted (docs/09 "Restore"). Handed
+   * straight to the runner; a test points it at a temp directory.
+   */
+  restoreRoot?: string;
   /** Injectable clock and id source, so tests get stable records. */
   now?: () => string;
   newId?: () => string;
@@ -160,6 +164,7 @@ export function createRunQueue(options: RunQueueOptions): RunQueue {
     controls,
     createAgent = lazySdkAgent,
     autoStart = true,
+    restoreRoot,
     now = () => new Date().toISOString(),
     newId = () => randomUUID(),
   } = options;
@@ -301,6 +306,7 @@ export function createRunQueue(options: RunQueueOptions): RunQueue {
         agent: createAgent(),
         approvals,
         ...(controls ? { controls } : {}),
+        ...(restoreRoot === undefined ? {} : { restoreRoot }),
         model: routed.model,
         now,
         newId,
