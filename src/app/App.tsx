@@ -57,19 +57,27 @@ export default function App() {
   }
 
   // The task view is a full screen, not a panel (docs/07): it takes the main
-  // pane whole, and the rail beside it is a link back to the list.
-  const task = matchPath("/p/:project/t/:key", pathname);
+  // pane whole, and the rail beside it is a link back to the list. Its tab is
+  // in the address — `/p/:project/t/:key` is Overview, `…/run` is the Run tab
+  // (docs/07 "Routes") — so a link to a run is a link, not a click path.
+  const overview = matchPath("/p/:project/t/:key", pathname);
+  const runTab = matchPath("/p/:project/t/:key/run", pathname);
+  const task = overview ?? runTab;
   if (task?.["project"] && task["key"]) {
     const slug = task["project"];
     return (
       <Shell slug={slug} rail={<TaskViewRail slug={slug} />}>
-        <TaskView slug={slug} taskKey={task["key"]} />
+        <TaskView
+          slug={slug}
+          taskKey={task["key"]}
+          tab={overview === null ? "run" : "overview"}
+        />
       </Shell>
     );
   }
 
-  // Deeper workspace addresses (/p/:project/t/:key/run, /docs, /settings, …) keep
-  // the shell and leave the main pane to the screen that will own them.
+  // Deeper workspace addresses (/docs, /settings, …) keep the shell and leave
+  // the main pane to the screen that will own them.
   const inside = pathname.match(/^\/p\/([^/]+)\//);
   if (inside?.[1]) {
     return (

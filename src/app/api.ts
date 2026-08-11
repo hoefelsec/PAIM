@@ -77,16 +77,26 @@ export function apiList<T>(path: string): Promise<ListEnvelope<T>> {
 }
 
 /**
+ * A POST whose whole answer matters. The run controls (docs/06 "Runs") put
+ * more than the record in the envelope — `approve` names the operations it
+ * settled, `restore` reports what it reverted — and the caller reads those
+ * beside `data`.
+ */
+export function apiPostEnvelope<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+/**
  * Creates a record and unwraps the one the service answers with (`201`, per
  * docs/06). Used by src/app/QuickCreate.tsx (T23) — the one write in the
  * client that is not an edit of an existing row.
  */
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
-  const envelope = await request<{ data: T }>(path, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const envelope = await apiPostEnvelope<{ data: T }>(path, body);
   return envelope.data;
 }
 

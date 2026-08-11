@@ -13,7 +13,9 @@ import App from "../../src/app/App";
 import { createQueryClient } from "../../src/app/queries";
 import { Router } from "../../src/app/router";
 import { OPEN_STATUSES } from "../../src/shared/statuses.js";
+import { reversibleByRestore, riskForKind } from "../../src/shared/runs.js";
 import type { TaskView } from "../../src/app/table";
+import type { Operation, Run, RunView } from "../../src/shared/runs.js";
 import type { ProjectView } from "../../src/shared/types.js";
 
 export interface Counts {
@@ -97,6 +99,57 @@ export function makeTask(overrides: Partial<TaskView> = {}): TaskView {
   };
 }
 
+let runSeq = 0;
+let operationSeq = 0;
+
+/** A run as `GET /api/runs/:run` returns it — the record plus its log. */
+export function makeRun(overrides: Partial<RunView> = {}): RunView {
+  const now = new Date().toISOString();
+  const n = ++runSeq;
+  return {
+    id: `run-${n}`,
+    taskId: "task-1",
+    projectId: "id-paim",
+    kind: "single",
+    parentRunId: null,
+    trigger: "manual",
+    status: "succeeded",
+    restorePoint: null,
+    usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
+    failureReason: null,
+    createdAt: now,
+    startedAt: now,
+    endedAt: now,
+    operations: [],
+    ...overrides,
+  };
+}
+
+/**
+ * One operation. `risk` and `reversible` are derived from the kind the same
+ * way the storage layer derives them (src/shared/runs.ts), so no fixture can
+ * state a risk that disagrees with its operation.
+ */
+export function makeOperation(overrides: Partial<Operation> & { kind: Operation["kind"] }): Operation {
+  const now = new Date().toISOString();
+  const n = ++operationSeq;
+  return {
+    id: `op-${n}`,
+    runId: "run-1",
+    seq: n,
+    summary: `${overrides.kind.charAt(0).toUpperCase()}${overrides.kind.slice(1)} target`,
+    status: "done",
+    diff: null,
+    stdout: null,
+    exitCode: null,
+    createdAt: now,
+    updatedAt: now,
+    ...overrides,
+    risk: riskForKind(overrides.kind),
+    reversible: reversibleByRestore(overrides.kind),
+  };
+}
+
 /** One write the client sent, as the fake service received it. */
 export interface FakeWrite {
   path: string;
@@ -112,6 +165,8 @@ export interface FakeApi {
   writes: FakeWrite[];
   /** Every `POST …/tasks` create, in order — what QuickCreate (T23) sent. */
   creates: { path: string; body: Record<string, unknown> }[];
+  /** Every run POST: start, approve, deny, restore (T69). */
+  controls: { path: string; body: Record<string, unknown> }[];
 }
 
 /** The subset of `?open=`/`?status=` the table and the counters send. */
@@ -145,15 +200,38 @@ function applyWrite(task: TaskView, body: Record<string, unknown>): TaskView {
   return task;
 }
 
+export interface FakeError {
+  status: number;
+  code: string;
+  message?: string;
+}
+
+/** What `POST /api/runs/:run/restore` reports (src/server/runs/restore.ts). */
+export interface FakeRestore {
+  method: string;
+  restored: string[];
+  deleted: string[];
+}
+
 export function installApi(options: {
   projects: ProjectView[];
   counts?: Record<string, Counts>;
   /** Tasks per project slug. A slug with tasks answers `counts` from them. */
   tasks?: Record<string, TaskView[]>;
   /** Refuses every write with this error, the way a 4xx of docs/06 reads. */
-  rejectWrites?: { status: number; code: string; message?: string };
+  rejectWrites?: FakeError;
+  /** Runs per task key, newest first — what the Run tab (T69) reads. */
+  runs?: Record<string, RunView[]>;
+  /** What a restore answers with. */
+  restore?: FakeRestore;
+  /** Refuses every run control (approve, deny, restore, start). */
+  rejectControls?: FakeError;
 }): FakeApi {
-  const api: FakeApi = { calls: [], writes: [], creates: [] };
+  const api: FakeApi = { calls: [], writes: [], creates: [], controls: [] };
+
+  const allRuns = (): RunView[] => Object.values(options.runs ?? {}).flat();
+  const findRun = (id: string): RunView | undefined =>
+    allRuns().find((run) => run.id === id);
 
   const json = (status: number, body: unknown): Response =>
     new Response(JSON.stringify(body), {
@@ -169,6 +247,71 @@ export function installApi(options: {
     const url = new URL(path, "http://127.0.0.1:4400");
     const params = url.searchParams;
     const method = (init?.method ?? "GET").toUpperCase();
+
+    // --- Runs (docs/06 "Runs", T69) -------------------------------------
+    const taskRuns = /^\/api\/projects\/([^/]+)\/tasks\/([^/]+)\/runs$/.exec(url.pathname);
+    if (taskRuns?.[1] && taskRuns[2]) {
+      const key = decodeURIComponent(taskRuns[2]);
+      const store = (options.runs ??= {});
+      const runs = (store[key] ??= []);
+
+      if (method === "POST") {
+        const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+        api.controls.push({ path, body });
+        if (options.rejectControls) {
+          const { status, code, message } = options.rejectControls;
+          return json(status, { error: { code, message: message ?? code } });
+        }
+        const started = makeRun({ status: "queued", startedAt: null, endedAt: null });
+        runs.unshift(started);
+        return json(201, { data: started, blockedBy: [], model: { model: "claude-opus-5" } });
+      }
+
+      return json(200, {
+        data: runs.map(({ operations: _operations, ...run }) => run as Run),
+        meta: { total: runs.length, cursor: null, hasMore: false },
+      });
+    }
+
+    const oneRun = /^\/api\/runs\/([^/]+)$/.exec(url.pathname);
+    if (oneRun?.[1] && method === "GET") {
+      const run = findRun(decodeURIComponent(oneRun[1]));
+      if (!run) return notFound("RUN_NOT_FOUND", `No run "${oneRun[1]}"`);
+      return json(200, { data: { ...run, operations: [...run.operations] } });
+    }
+
+    const control = /^\/api\/runs\/([^/]+)\/(approve|deny|restore)$/.exec(url.pathname);
+    if (control?.[1] && control[2] && method === "POST") {
+      const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      api.controls.push({ path, body });
+
+      const run = findRun(decodeURIComponent(control[1]));
+      if (!run) return notFound("RUN_NOT_FOUND", `No run "${control[1]}"`);
+      if (options.rejectControls) {
+        const { status, code, message } = options.rejectControls;
+        return json(status, { error: { code, message: message ?? code } });
+      }
+
+      if (control[2] === "restore") {
+        const restore = options.restore ?? { method: "snapshot", restored: [], deleted: [] };
+        return json(200, { data: run, restore: { performed: true, ...restore } });
+      }
+
+      // The service settles the parked operation and the run carries on
+      // (docs/10 §4). The real one answers before the runner notices; the
+      // fake applies the result the tab will see a moment later.
+      const ids =
+        control[2] === "approve"
+          ? ((body["operationIds"] as string[] | undefined) ?? [])
+          : [String(body["operationId"] ?? "")];
+      run.operations = run.operations.map((operation) =>
+        ids.includes(operation.id)
+          ? { ...operation, status: control[2] === "approve" ? "running" : "denied" }
+          : operation,
+      );
+      run.status = "executing";
+      return json(200, { data: run });
+    }
 
     // One task: `GET …/tasks/:key` is what the task view deep link reads
     // (docs/06 — the reference is a key or a UUID).
@@ -305,6 +448,9 @@ export class MockEventSource {
   onmessage: ((event: { data: string }) => void) | null = null;
   closed = false;
 
+  /** Listeners registered by name — the run stream's `run`/`operation` (T69). */
+  private readonly listeners = new Map<string, Set<(event: { data: string }) => void>>();
+
   constructor(public readonly url: string) {
     MockEventSource.instances.push(this);
   }
@@ -323,6 +469,36 @@ export class MockEventSource {
 
   emit(payload: unknown): void {
     this.onmessage?.({ data: JSON.stringify(payload) });
+  }
+
+  addEventListener(name: string, listener: (event: { data: string }) => void): void {
+    let set = this.listeners.get(name);
+    if (!set) {
+      set = new Set();
+      this.listeners.set(name, set);
+    }
+    set.add(listener);
+  }
+
+  removeEventListener(name: string, listener: (event: { data: string }) => void): void {
+    this.listeners.get(name)?.delete(listener);
+  }
+
+  /**
+   * One named frame off the wire. `SseHub.broadcast(frame, name)` writes
+   * `event: <name>`, and a named frame never reaches `onmessage` — so a
+   * consumer of the run stream is driven through this, not `emit`.
+   */
+  emitNamed(name: string, payload: unknown): void {
+    const frame = { data: JSON.stringify(payload) };
+    for (const listener of this.listeners.get(name) ?? []) listener(frame);
+  }
+
+  /** The stream this test opened for `url`, or undefined when none is open. */
+  static find(match: string): MockEventSource | undefined {
+    return MockEventSource.instances.find(
+      (source) => source.url.includes(match) && !source.closed,
+    );
   }
 }
 

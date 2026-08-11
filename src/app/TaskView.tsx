@@ -29,8 +29,9 @@ import { PRIORITY_LABEL, SIZE_LABEL, TYPE_LABEL } from "../ui/vocabulary";
 import { ApiError } from "./api";
 import { FLASH_MS, isNoop, propertyEditors, type EditorSpec, type TaskPatch } from "./edit";
 import { Markdown } from "./markdown";
-import { useProject, useSaveTask, useTask } from "./queries";
-import { Link } from "./router";
+import { useProject, useSaveTask, useStartRun, useTask } from "./queries";
+import { Link, navigate } from "./router";
+import { RunTab } from "./RunTab";
 import { taskType, type TaskView as TaskRecord } from "./table";
 import { ValueEditor } from "./ValueEditor";
 
@@ -212,6 +213,40 @@ function Overview({ task }: { task: TaskRecord }) {
   );
 }
 
+/* ── the keyboard ───────────────────────────────────────────────────────── */
+
+/**
+ * docs/07 "Keyboard": `R` runs the task. The complete keyboard map belongs to
+ * one registry module (T47, not built yet), so this is the one binding the
+ * task view owns; when the registry arrives, `R` moves into it and this hook
+ * goes away.
+ *
+ * A key that types a letter must not also fire a command, so an event from a
+ * field the user is writing in is left alone.
+ */
+function useRunShortcut(enabled: boolean, run: () => void): void {
+  const latest = useRef(run);
+  useEffect(() => {
+    latest.current = run;
+  });
+
+  useEffect(() => {
+    if (!enabled) return;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== "r" && event.key !== "R") return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (target?.isContentEditable) return;
+      event.preventDefault();
+      latest.current();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [enabled]);
+}
+
 /* ── the screen ─────────────────────────────────────────────────────────── */
 
 /** The rail on this screen: one link back to the list (docs/07). */
@@ -246,10 +281,35 @@ function Message({ title, detail, slug }: { title: string; detail?: string; slug
   );
 }
 
-export function TaskView({ slug, taskKey }: { slug: string; taskKey: string }) {
+/** The tabs this screen can show today. The rest arrive with their stages. */
+export type TaskViewTab = "overview" | "run";
+
+export function TaskView({
+  slug,
+  taskKey,
+  tab = "overview",
+}: {
+  slug: string;
+  taskKey: string;
+  tab?: TaskViewTab;
+}) {
   const project = useProject(slug);
   const query = useTask(slug, taskKey);
   const task = query.data;
+
+  const base = `/p/${encodeURIComponent(slug)}/t/${encodeURIComponent(taskKey)}`;
+  // docs/07: "A tab appears only when the project's pipeline includes that
+  // stage." Every project must enable `executing` (docs/04), so in practice
+  // the Run tab is always there — the rule is checked all the same, because
+  // the tab row is the pipeline and nothing else decides it.
+  const hasRun = (project.data?.statuses ?? []).includes("executing");
+
+  const start = useStartRun(slug, taskKey);
+  // Not while one is already on its way: a second press must not queue a
+  // second run of the same task.
+  useRunShortcut(task !== undefined && !start.isPending, () => {
+    start.mutate(undefined, { onSuccess: () => navigate(`${base}/run`) });
+  });
 
   const [editing, setEditing] = useState<string | null>(null);
   /** The properties whose last write was refused — clay for one beat (docs/13). */
@@ -327,14 +387,39 @@ export function TaskView({ slug, taskKey }: { slug: string; taskKey: string }) {
           <h1 className="min-w-0 flex-1 text-task text-tx-primary">{task.title}</h1>
           <StatusPill status={task.status} />
         </div>
+
+        {/* `R` asked for a run and the service refused: the reason belongs
+            beside the task, not in a toast the interface does not have. */}
+        {start.isError && (
+          <p data-slot="run-start-error" role="alert" className="text-prop text-pr-urgent">
+            {(start.error as Error).message}
+          </p>
+        )}
       </header>
 
-      {/* One tab today. The row is the pipeline in order (docs/07), so the
-          rest appear as the stages behind them are built (specs/15). */}
-      <Tabs tabs={[{ id: "overview", label: "Overview" }]} active="overview" />
+      {/* The row is the pipeline in order (docs/07), so the remaining tabs
+          appear as the stages behind them are built (specs/15). */}
+      <Tabs
+        tabs={[
+          { id: "overview", label: "Overview" },
+          ...(hasRun ? [{ id: "run", label: "Run" }] : []),
+        ]}
+        active={tab}
+        onSelect={(id) => navigate(id === "run" ? `${base}/run` : base)}
+      />
 
       <div className="grid min-h-0 flex-1 grid-cols-[1fr_244px]">
-        <Overview task={task} />
+        {tab === "run" && hasRun ? (
+          project.data === undefined ? (
+            <section data-tab="run" className="p-5">
+              <p className="text-row text-tx-muted">Loading the workspace…</p>
+            </section>
+          ) : (
+            <RunTab slug={slug} project={project.data} task={task} />
+          )
+        ) : (
+          <Overview task={task} />
+        )}
 
         <aside
           aria-label="Properties"

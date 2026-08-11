@@ -127,9 +127,11 @@ describe("the deep link", () => {
     // The status pill, in the header — the same status the property shows.
     expect(within(page).getAllByText(STATUS_LABEL.executing).length).toBeGreaterThan(0);
 
-    // Only Overview until the later tabs arrive (T24 scope).
+    // Overview (T24) and Run (T69). The remaining tabs arrive with the
+    // stages behind them (specs/15).
     expect(within(page).getByRole("button", { name: "Overview" })).toBeTruthy();
-    for (const later of ["Questions", "Design", "Run", "Tests", "Review"]) {
+    expect(within(page).getByRole("button", { name: "Run" })).toBeTruthy();
+    for (const later of ["Questions", "Design", "Tests", "Review"]) {
       expect(within(page).queryByRole("button", { name: later })).toBeNull();
     }
 

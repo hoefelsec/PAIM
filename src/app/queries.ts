@@ -12,9 +12,12 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query";
-import { apiGet, apiList, apiPatch, type ListEnvelope } from "./api";
+import { useCallback } from "react";
+import { apiGet, apiList, apiPatch, apiPost, apiPostEnvelope, type ListEnvelope } from "./api";
 import { mergeTask, type TaskPatch } from "./edit";
+import type { RestoreOutcome } from "./run";
 import type { TaskView } from "./table";
+import type { Run, RunView } from "../shared/runs.js";
 import type { ProjectView } from "../shared/types.js";
 
 export type ProjectFilter = "active" | "archived" | "all";
@@ -28,6 +31,10 @@ export const queryKeys = {
   tasks: (slug: string) => ["tasks", slug] as const,
   /** One task, by key — what the task view reads (docs/07 "The task view"). */
   task: (slug: string, key: string) => ["task", slug, key] as const,
+  /** The runs of one task, newest first — the Run tab's picker (T69). */
+  runs: (slug: string, key: string) => ["runs", slug, key] as const,
+  /** One run and its operations — the log the Run tab draws. */
+  run: (runId: string) => ["run", runId] as const,
 };
 
 /**
@@ -210,6 +217,116 @@ export function useSaveTask(slug: string) {
         current === undefined ? undefined : { ...current, ...record },
       );
     },
+  });
+}
+
+/* ── runs (T69) ─────────────────────────────────────────────────────────── */
+
+/**
+ * The runs of one task, newest first (docs/06 "Runs"). Without their
+ * operation logs: a task can hold many runs, and one log is what
+ * `GET /api/runs/:run` is for.
+ */
+export function useRuns(slug: string, key: string): UseQueryResult<Run[]> {
+  return useQuery({
+    queryKey: queryKeys.runs(slug, key),
+    queryFn: async () =>
+      (
+        await apiList<Run>(
+          `/api/projects/${encodeURIComponent(slug)}/tasks/${encodeURIComponent(key)}/runs`,
+        )
+      ).data,
+  });
+}
+
+/**
+ * One run and its operations. The run stream (src/app/runStream.ts) keeps
+ * this cache current while the tab is open, so the tab does not poll — a run
+ * is the one slow operation in the service (specs/README) and re-reading its
+ * whole log on a timer would be the wrong shape.
+ */
+export function useRun(runId: string | null): UseQueryResult<RunView> {
+  return useQuery({
+    queryKey: queryKeys.run(runId ?? ""),
+    queryFn: () => apiGet<RunView>(`/api/runs/${encodeURIComponent(runId!)}`),
+    enabled: runId !== null,
+    // The log is a record of what happened; the stream, not a refetch on
+    // focus, is what makes it current.
+    staleTime: Infinity,
+  });
+}
+
+/** Everything a run control invalidates: the log, and the list beside it. */
+function useRunRefresh(slug: string, key: string, runId: string | null): () => void {
+  const client = useQueryClient();
+  return useCallback(() => {
+    if (runId !== null) void client.invalidateQueries({ queryKey: queryKeys.run(runId) });
+    void client.invalidateQueries({ queryKey: queryKeys.runs(slug, key) });
+    // A run answers a control by moving the task too (T61): the status pill
+    // beside the tabs must not keep the old word.
+    void client.invalidateQueries({ queryKey: queryKeys.task(slug, key) });
+  }, [client, slug, key, runId]);
+}
+
+/**
+ * `POST /api/projects/:project/tasks/:key/runs` — put a run in the queue. The
+ * endpoint enqueues and answers; it never waits for the agent (docs/06).
+ */
+export function useStartRun(slug: string, key: string) {
+  const refresh = useRunRefresh(slug, key, null);
+  return useMutation<Run, Error, void>({
+    mutationFn: () =>
+      apiPost<Run>(
+        `/api/projects/${encodeURIComponent(slug)}/tasks/${encodeURIComponent(key)}/runs`,
+        {},
+      ),
+    onSuccess: refresh,
+  });
+}
+
+/** `POST /api/runs/:run/approve` — settle one parked operation (docs/10 §4). */
+export function useApproveOperation(slug: string, key: string, runId: string | null) {
+  const refresh = useRunRefresh(slug, key, runId);
+  return useMutation<Run, Error, string>({
+    mutationFn: (operationId) =>
+      apiPost<Run>(`/api/runs/${encodeURIComponent(runId!)}/approve`, {
+        operationIds: [operationId],
+      }),
+    onSuccess: refresh,
+  });
+}
+
+export interface DenyVars {
+  operationId: string;
+  /** The refusal the model reads (docs/10 §3). Empty lets the service word it. */
+  reason: string;
+}
+
+/** `POST /api/runs/:run/deny` — the refusal, and its reason, reach the model. */
+export function useDenyOperation(slug: string, key: string, runId: string | null) {
+  const refresh = useRunRefresh(slug, key, runId);
+  return useMutation<Run, Error, DenyVars>({
+    mutationFn: ({ operationId, reason }) =>
+      apiPost<Run>(`/api/runs/${encodeURIComponent(runId!)}/deny`, {
+        operationId,
+        ...(reason.trim() === "" ? {} : { reason: reason.trim() }),
+      }),
+    onSuccess: refresh,
+  });
+}
+
+/** `POST /api/runs/:run/restore` — the workspace, as it was before the run. */
+export function useRestoreRun(slug: string, key: string, runId: string | null) {
+  const refresh = useRunRefresh(slug, key, runId);
+  return useMutation<RestoreOutcome, Error, void>({
+    mutationFn: async () => {
+      const envelope = await apiPostEnvelope<{ data: RunView; restore: RestoreOutcome }>(
+        `/api/runs/${encodeURIComponent(runId!)}/restore`,
+        {},
+      );
+      return envelope.restore;
+    },
+    onSuccess: refresh,
   });
 }
 
