@@ -4,9 +4,11 @@ import {
   OPERATION_KINDS,
   RUN_STATUSES,
   TERMINAL_RUN_STATUSES,
+  computeRunProgress,
   isTerminalRunStatus,
   reversibleByRestore,
   riskForKind,
+  type Operation,
   type OperationKind,
   type OperationRisk,
 } from "../../src/shared/runs.js";
@@ -108,5 +110,65 @@ describe("run statuses", () => {
     expect(isTerminalRunStatus("cancelled")).toBe(true);
     expect(isTerminalRunStatus("awaiting_approval")).toBe(false);
     expect(isTerminalRunStatus("queued")).toBe(false);
+  });
+});
+
+describe("computeRunProgress", () => {
+  function operation(status: Operation["status"]): Operation {
+    return {
+      id: "op",
+      runId: "run",
+      seq: 1,
+      kind: "read",
+      risk: "safe",
+      reversible: true,
+      summary: "Read a.ts",
+      status,
+      diff: null,
+      stdout: null,
+      exitCode: null,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+  }
+
+  it("shows `planning` before the agent has proposed anything, with no operations to count", () => {
+    // docs/09 "Approval happens during the run": no plan of all operations
+    // is produced up front, so `planning` never claims a total.
+    expect(computeRunProgress({ status: "planning" }, [])).toEqual({ state: "planning" });
+    expect(computeRunProgress({ status: "planning" }, [operation("done")])).toEqual({
+      state: "planning",
+    });
+  });
+
+  it("counts completed of planned once the run has left planning", () => {
+    expect(computeRunProgress({ status: "executing" }, [])).toEqual({
+      state: "counted",
+      planned: 0,
+      completed: 0,
+    });
+    expect(
+      computeRunProgress({ status: "executing" }, [
+        operation("done"),
+        operation("running"),
+        operation("proposed"),
+      ]),
+    ).toEqual({ state: "counted", planned: 3, completed: 1 });
+  });
+
+  it("treats denied and failed operations as finished, never a fabricated percentage of an unknown total", () => {
+    expect(
+      computeRunProgress({ status: "awaiting_approval" }, [
+        operation("denied"),
+        operation("failed"),
+        operation("approved"),
+      ]),
+    ).toEqual({ state: "counted", planned: 3, completed: 2 });
+  });
+
+  it("keeps counting after the run finishes", () => {
+    expect(
+      computeRunProgress({ status: "succeeded" }, [operation("done"), operation("done")]),
+    ).toEqual({ state: "counted", planned: 2, completed: 2 });
   });
 });

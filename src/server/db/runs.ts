@@ -6,12 +6,14 @@
  * the shared {@link Run} and {@link Operation} types only.
  *
  * Nothing here emits on the change bus: `GET /api/events` carries data
- * changes (tasks, projects, schemas, views — src/shared/events.ts), while a
- * run announces itself on its own stream and on the activity feed, which
- * are the run-stream work's (specs/09) to build.
+ * changes (tasks, projects, schemas, views — src/shared/events.ts). A run
+ * announces itself on its own feed instead (src/server/events/runFeed.ts),
+ * which `GET /api/runs/:run/stream` and `GET /api/activity/stream` read
+ * (T59).
  */
 
 import type Database from "better-sqlite3";
+import { emitRunEvent } from "../events/runFeed.js";
 import {
   reversibleByRestore,
   riskForKind,
@@ -110,6 +112,7 @@ export function insertRun(db: Database.Database, run: Run): Run {
   const names = RUN_COLUMNS.map(column).join(", ");
   const placeholders = RUN_COLUMNS.map((c) => `@${c}`).join(", ");
   db.prepare(`INSERT INTO runs (${names}) VALUES (${placeholders})`).run(runToRow(run));
+  emitRunEvent(db, { kind: "run", run });
   return run;
 }
 
@@ -119,6 +122,7 @@ export function updateRun(db: Database.Database, run: Run): Run {
     .map((c) => `${column(c)} = @${c}`)
     .join(", ");
   db.prepare(`UPDATE runs SET ${assignments} WHERE id = @id`).run(runToRow(run));
+  emitRunEvent(db, { kind: "run", run });
   return run;
 }
 
@@ -145,6 +149,15 @@ export function listRunsForProject(db: Database.Database, projectId: string): Ru
   const rows = db
     .prepare("SELECT * FROM runs WHERE projectId = ? ORDER BY createdAt DESC, id DESC")
     .all(projectId) as RunRow[];
+  return rows.map(rowToRun);
+}
+
+/**
+ * Every run, across every project, newest first — `GET /api/activity`
+ * (docs/06 "Activity and usage": "all runs in all projects").
+ */
+export function listAllRuns(db: Database.Database): Run[] {
+  const rows = db.prepare("SELECT * FROM runs ORDER BY createdAt DESC, id DESC").all() as RunRow[];
   return rows.map(rowToRun);
 }
 
@@ -271,6 +284,7 @@ export function insertOperation(db: Database.Database, draft: OperationDraft): O
   db.prepare(`INSERT INTO operations (${names}) VALUES (${placeholders})`).run(
     operationToRow(operation),
   );
+  emitRunEvent(db, { kind: "operation", operation });
   return operation;
 }
 
@@ -289,6 +303,7 @@ export function updateOperation(db: Database.Database, operation: Operation): Op
     .map((c) => `${c} = @${c}`)
     .join(", ");
   db.prepare(`UPDATE operations SET ${assignments} WHERE id = @id`).run(operationToRow(next));
+  emitRunEvent(db, { kind: "operation", operation: next });
   return next;
 }
 

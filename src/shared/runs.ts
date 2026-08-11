@@ -234,3 +234,33 @@ export interface Run {
 
 /** `GET /api/runs/:run`: "one run and its operations" (docs/06). */
 export type RunView = Run & { operations: Operation[] };
+
+/**
+ * docs/07 "Progress": before the agent proposes anything the row can only
+ * say `planning` — "The service does not show a percentage that it cannot
+ * compute" (docs/09 "Approval happens during the run": no plan of all
+ * operations is produced up front, so there is nothing to divide by yet).
+ * Once the run has left `planning`, `planned` is the number of operations
+ * it has proposed *so far* and `completed` the ones that finished one way or
+ * another — an honest, growing count, never a guess at a total the service
+ * cannot know.
+ */
+export type RunProgress =
+  | { state: "planning" }
+  | { state: "counted"; planned: number; completed: number };
+
+/** Operation statuses docs/09 "Records" treats as finished for one operation. */
+const FINISHED_OPERATION_STATUSES: readonly OperationStatus[] = ["done", "failed", "denied"];
+
+/**
+ * Derives {@link RunProgress} from a run and its operations, read fresh
+ * every time rather than stored: it is a view over the log, not a fact the
+ * service decides and remembers.
+ */
+export function computeRunProgress(run: Pick<Run, "status">, operations: Operation[]): RunProgress {
+  if (run.status === "planning") return { state: "planning" };
+  const completed = operations.filter((op) =>
+    FINISHED_OPERATION_STATUSES.includes(op.status),
+  ).length;
+  return { state: "counted", planned: operations.length, completed };
+}

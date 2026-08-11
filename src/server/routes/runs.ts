@@ -31,11 +31,13 @@
  * reaches `done`. `POST /api/runs/:run/cancel {restore: true}` is the same
  * revert, decided in the same request as the stop.
  *
- * The run streams are later work (specs/09-ai-run.md).
+ * `GET /api/runs/:run/stream` (T59) is the operation lifecycle and run
+ * status stream, on the registry of src/server/runs/streams.ts.
  */
 
 import type Database from "better-sqlite3";
 import type { FastifyInstance, FastifyPluginOptions } from "fastify";
+import { SSE_HEADERS } from "../events/sse.js";
 import { getProjectById } from "../db/projects.js";
 import {
   getOperationById,
@@ -53,6 +55,7 @@ import type { ApprovalRegistry } from "../runs/approvals.js";
 import type { RunControlRegistry } from "../runs/control.js";
 import type { RunQueue } from "../runs/queue.js";
 import { restoreWorkspace, type RestoreResult } from "../runs/restore.js";
+import type { RunStreamRegistry } from "../runs/streams.js";
 import { requireProject } from "./projects.js";
 import { requireTask } from "./tasks.js";
 import type { Operation, Run, RunView } from "../../shared/runs.js";
@@ -66,6 +69,8 @@ export interface RunRoutesOptions extends FastifyPluginOptions {
   approvals: ApprovalRegistry;
   /** Where a run in flight is paused, resumed or cancelled. */
   controls: RunControlRegistry;
+  /** The run and activity streams (T59). */
+  streams: RunStreamRegistry;
 }
 
 /**
@@ -232,7 +237,7 @@ function performRestore(db: Database.Database, run: Run): RestoreResult {
 }
 
 export async function runRoutes(app: FastifyInstance, options: RunRoutesOptions): Promise<void> {
-  const { getDb, getQueue, approvals, controls } = options;
+  const { getDb, getQueue, approvals, controls, streams } = options;
 
   app.post<{ Params: { project: string; key: string } }>(
     "/api/projects/:project/tasks/:key/runs",
@@ -282,6 +287,22 @@ export async function runRoutes(app: FastifyInstance, options: RunRoutesOptions)
   app.get<{ Params: { run: string } }>("/api/runs/:run", async (req) => {
     const db = getDb();
     return { data: runView(db, requireRun(db, req.params.run)) };
+  });
+
+  // --- The run stream (T59) ------------------------------------------------
+  //
+  // A 404 on an unknown run is answered the normal way, before the socket is
+  // handed to the hub; from there it belongs to the stream, exactly as
+  // `GET /api/events` hands its socket to the change-bus hub.
+  app.get<{ Params: { run: string } }>("/api/runs/:run/stream", (req, reply) => {
+    const db = getDb();
+    const run = requireRun(db, req.params.run);
+
+    reply.hijack();
+    reply.raw.writeHead(200, SSE_HEADERS);
+    const connection = streams.runHub.add(reply.raw, { comment: "connected" });
+    const stopWatching = streams.watch(run.id, connection);
+    reply.raw.on("close", stopWatching);
   });
 
   // --- Approve and deny (docs/10 §4) --------------------------------------

@@ -9,6 +9,7 @@ import { PORT } from "./config.js";
 import { openDatabase } from "./db/index.js";
 import { onChange } from "./events/changes.js";
 import { SseHub } from "./events/sse.js";
+import { activityRoutes } from "./routes/activity.js";
 import { eventRoutes } from "./routes/events.js";
 import { projectRoutes } from "./routes/projects.js";
 import { runRoutes } from "./routes/runs.js";
@@ -17,6 +18,7 @@ import { taskRoutes } from "./routes/tasks.js";
 import { createApprovalRegistry } from "./runs/approvals.js";
 import { createRunControlRegistry } from "./runs/control.js";
 import { createRunQueue, type RunQueue } from "./runs/queue.js";
+import { RunStreamRegistry } from "./runs/streams.js";
 import { createWriterSemaphore } from "./safety/semaphore.js";
 import type { Agent } from "./runs/agent.js";
 
@@ -29,6 +31,12 @@ declare module "fastify" {
      * endpoints (T56) and the tests reach the same instance the routes use.
      */
     runQueue: RunQueue;
+    /**
+     * The run and activity streams (T59; src/server/runs/streams.ts).
+     * Decorated so tests can inspect open-connection counts the same way
+     * they inspect `app.sse`.
+     */
+    runStreams: RunStreamRegistry;
   }
 }
 
@@ -116,6 +124,12 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   const hub = new SseHub({ heartbeatMs: options.sseHeartbeatMs });
   app.decorate("sse", hub);
 
+  // The run and activity streams (T59) read their own feed
+  // (src/server/events/runFeed.ts), attached the same lazy way as the
+  // change bus below.
+  const runStreams = new RunStreamRegistry({ heartbeatMs: options.sseHeartbeatMs });
+  app.decorate("runStreams", runStreams);
+
   let db = options.db;
   let unsubscribe: (() => void) | null = null;
   const getDb = (): Database.Database => {
@@ -123,6 +137,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     unsubscribe ??= onChange(db, (event) => {
       hub.broadcast(event);
     });
+    runStreams.attach(db);
     return db;
   };
 
@@ -153,6 +168,8 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     unsubscribe?.();
     unsubscribe = null;
     hub.closeAll();
+    runStreams.detach();
+    runStreams.closeAll();
   });
 
   app.get("/api/health", async () => ({
@@ -163,7 +180,8 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   app.register(projectRoutes, { getDb });
   app.register(schemaRoutes, { getDb });
   app.register(taskRoutes, { getDb });
-  app.register(runRoutes, { getDb, getQueue, approvals, controls });
+  app.register(runRoutes, { getDb, getQueue, approvals, controls, streams: runStreams });
+  app.register(activityRoutes, { getDb, streams: runStreams });
 
   if (existsSync(staticDir)) {
     app.register(fastifyStatic, {
