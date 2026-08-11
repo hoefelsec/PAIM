@@ -10,11 +10,15 @@
  * src/ui/shapes.tsx, and the name appears only under the pointer. The column
  * head names the dimension, so the row does not repeat it.
  *
- * Every cell but the key and the timestamp edits in place (docs/07
- * "Editing"): a click opens a control inside the cell, blur or Enter saves,
- * Esc cancels, and a refused write flashes the row clay and puts the old
- * value back. There is no modal form and no Save control. What each column
- * edits, and what its write says, is in ./edit.ts.
+ * Every cell but the key, the title and the timestamp edits in place
+ * (docs/07 "Editing"): a click opens a control inside the cell, blur or
+ * Enter saves, Esc cancels, and a refused write flashes the row clay and
+ * puts the old value back. There is no modal form and no Save control. What
+ * each column edits, and what its write says, is in ./edit.ts.
+ *
+ * The title is the way in, not an editor: a click on it opens the task view
+ * (docs/07 "The task view"), and the rename lives on the task view's
+ * heading. A row's one navigation target is its one line of text.
  *
  * There is no virtualiser. The dependency list of docs/14 does not name one,
  * and it does not need to: every row is memoised on its task, so a project
@@ -23,6 +27,7 @@
  */
 
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "./router";
 import { SizePill } from "../ui/controls";
 import { PriorityIcon, SizeIcon, StatusRing, TypeIcon } from "../ui/shapes";
 import { SIZE_LABEL, STATUS_LABEL } from "../ui/vocabulary";
@@ -103,10 +108,7 @@ function cellContent(column: Column, task: TaskView) {
   switch (column.id) {
     case "key":
       return task.key;
-    case "title":
-      // The epic count is not part of the title, so it is not part of what a
-      // click on the title edits: the row prints it beside the editor.
-      return <span className="align-middle">{task.title}</span>;
+    // `title` is not here: the row renders it as the link to the task view.
     case "priority":
       return (
         <PriorityIcon
@@ -150,6 +152,8 @@ const EDITABLE_CELL =
 
 interface RowProps {
   task: TaskView;
+  /** The project of the table: the title links into `/p/:slug/t/:key`. */
+  slug: string;
   columns: readonly Column[];
   /** The editor of each editable column, by column id. Not editable: absent. */
   editors: ReadonlyMap<string, EditorSpec>;
@@ -170,6 +174,7 @@ interface RowProps {
 
 const TaskRow = memo(function TaskRow({
   task,
+  slug,
   columns,
   editors,
   child,
@@ -237,6 +242,14 @@ const TaskRow = memo(function TaskRow({
             {isKey && child && <ChildGuide />}
             {spec !== undefined && editing === column.id ? (
               <ValueEditor spec={spec} task={task} onCommit={onCommit} onCancel={onCancel} />
+            ) : isTitle ? (
+              <Link
+                to={`/p/${encodeURIComponent(slug)}/t/${encodeURIComponent(task.key)}`}
+                className="align-middle transition-colors duration-(--dur-hover-out)
+                           hover:text-accent hover:duration-(--dur-hover-in)"
+              >
+                {task.title}
+              </Link>
             ) : (
               content
             )}
@@ -301,11 +314,13 @@ interface EditingCell {
 
 function Table({
   model,
+  slug,
   columns,
   editors,
   save,
 }: {
   model: TableModel;
+  slug: string;
   columns: Column[];
   editors: ReadonlyMap<string, EditorSpec>;
   /** Writes one edit. It rejects when the service refuses (docs/06). */
@@ -371,6 +386,7 @@ function Table({
 
   // Every value here is stable, so spreading it does not defeat the memo.
   const shared = {
+    slug,
     columns,
     editors,
     onToggle: toggleEpic,
@@ -532,5 +548,5 @@ export function TaskTable({ slug, filters = {} }: { slug: string; filters?: Filt
     );
   }
 
-  return <Table model={model} columns={columns} editors={editors} save={save} />;
+  return <Table model={model} slug={slug} columns={columns} editors={editors} save={save} />;
 }

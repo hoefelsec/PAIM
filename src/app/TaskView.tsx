@@ -27,7 +27,7 @@ import { Chip, SizePill, StatusPill, Tabs } from "../ui/controls";
 import { PriorityIcon, SizeIcon, TypeIcon } from "../ui/shapes";
 import { PRIORITY_LABEL, SIZE_LABEL, TYPE_LABEL } from "../ui/vocabulary";
 import { ApiError } from "./api";
-import { FLASH_MS, isNoop, propertyEditors, type EditorSpec, type TaskPatch } from "./edit";
+import { FLASH_MS, isNoop, propertyEditors, TITLE, type EditorSpec, type TaskPatch } from "./edit";
 import { Markdown } from "./markdown";
 import { useProject, useSaveTask, useStartRun, useTask } from "./queries";
 import { Link, navigate } from "./router";
@@ -384,7 +384,33 @@ export function TaskView({
         </nav>
 
         <div className="flex items-start gap-3">
-          <h1 className="min-w-0 flex-1 text-task text-tx-primary">{task.title}</h1>
+          {/* The heading is the rename (the table's title is a link here, not
+              an editor): click it, type, blur or Enter saves, Esc cancels —
+              the same in-place contract as every property (docs/07). */}
+          <h1
+            data-edit={editing === "title" ? undefined : "title"}
+            data-rejected={rejected.has("title") ? "true" : undefined}
+            onClick={editing === "title" ? undefined : () => setEditing("title")}
+            style={rejected.has("title") ? { transitionDuration: "var(--dur-slow)" } : undefined}
+            className={`min-w-0 flex-1 cursor-text rounded-[4px] text-task
+                        transition-colors duration-(--dur-hover-out)
+                        hover:bg-overlay hover:duration-(--dur-hover-in) ${
+                          rejected.has("title") ? "bg-pr-urgent/25" : ""
+                        } text-tx-primary`}
+          >
+            {editing === "title" ? (
+              <ValueEditor
+                spec={TITLE}
+                task={task}
+                onCommit={commit}
+                onCancel={() => setEditing(null)}
+                className="w-full min-w-0 rounded-[4px] border border-bd-strong bg-raised
+                           px-1.5 text-task text-tx-primary outline-none focus:border-accent"
+              />
+            ) : (
+              task.title
+            )}
+          </h1>
           <StatusPill status={task.status} />
         </div>
 

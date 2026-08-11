@@ -11,7 +11,13 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { installApi, makeProject, makeTask, renderApp } from "./harness";
 
-const PAIM = makeProject({ slug: "paim", name: "PAIM" });
+const PAIM = makeProject({
+  slug: "paim",
+  name: "PAIM",
+  // One text column, so a test can put focus in a genuine field elsewhere on
+  // the screen (the title is a link now, not an editor).
+  fieldSchema: [{ key: "team", type: "text", showInTable: true, label: "Team" }],
+});
 
 function mount(tasks: ReturnType<typeof makeTask>[] = []) {
   const api = installApi({ projects: [PAIM], tasks: { paim: tasks } });
@@ -50,10 +56,10 @@ describe("opening", () => {
     mount([makeTask({ key: "FEAT-1", title: "Existing", status: "ready" })]);
     await waitFor(() => expect(rowFor("FEAT-1")).toBeTruthy());
 
-    // Open the cell editor on the title column — a genuine text field
+    // Open the cell editor on a text column — a genuine text field
     // elsewhere on the same screen.
-    await user.click(rowFor("FEAT-1")!.querySelector("[data-edit='title']")!);
-    const editor = screen.getByLabelText("Title of FEAT-1");
+    await user.click(rowFor("FEAT-1")!.querySelector("[data-edit='field.team']")!);
+    const editor = screen.getByLabelText("Team of FEAT-1");
     await user.type(editor, "c");
 
     expect(screen.queryByLabelText("New task title")).toBeNull();

@@ -78,7 +78,12 @@ const named = <T extends string>(values: readonly T[], labels: Record<T, string>
 
 /* ── core columns ───────────────────────────────────────────────────────── */
 
-const TITLE: EditorSpec = {
+/**
+ * The title's editor. Not a table column editor: in the table a click on the
+ * title is navigation — it opens the task view (docs/07 "The task view"),
+ * and the task view's heading is where the rename lives.
+ */
+export const TITLE: EditorSpec = {
   columnId: "title",
   label: "Title",
   kind: "text",
@@ -204,9 +209,10 @@ function fieldEditor(id: string, def: FieldDefView): EditorSpec {
  * The editors of one table, by column id.
  *
  * `key` and `updated` are absent on purpose: a key is permanent (docs/02
- * "Task keys") and `updatedAt` is the service's own record of the write. A
- * column with no entry here is not editable, which is the whole rule the
- * table needs.
+ * "Task keys") and `updatedAt` is the service's own record of the write.
+ * `title` is absent too — a click on the title opens the task view, and the
+ * rename lives there ({@link TITLE}). A column with no entry here is not
+ * editable, which is the whole rule the table needs.
  */
 export function columnEditors(
   columns: readonly Column[],
@@ -217,9 +223,6 @@ export function columnEditors(
 
   for (const column of columns) {
     switch (column.id) {
-      case "title":
-        editors.set(column.id, TITLE);
-        break;
       case "priority":
         editors.set(column.id, PRIORITY);
         break;
@@ -230,6 +233,7 @@ export function columnEditors(
         editors.set(column.id, typeEditor(typeDef));
         break;
       case "key":
+      case "title":
       case "updated":
         break;
       default:

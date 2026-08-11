@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { columnEditors, isNoop, mergeTask, type EditorSpec } from "../../src/app/edit";
+import { columnEditors, isNoop, mergeTask, TITLE, type EditorSpec } from "../../src/app/edit";
 import { tableColumns } from "../../src/app/table";
 import { PRIORITY_LABEL, SIZE_LABEL, TYPE_LABEL } from "../../src/ui/vocabulary";
 import { makeTask } from "./harness";
@@ -33,9 +33,8 @@ function editor(columnId: string, schema: FieldDef[] = SCHEMA): EditorSpec {
 const values = (spec: EditorSpec) => spec.options.map((option) => option.value);
 
 describe("which columns edit", () => {
-  it("edits every column but the key and the timestamp", () => {
+  it("edits every column but the key, the title and the timestamp", () => {
     expect([...editors().keys()]).toEqual([
-      "title",
       "priority",
       "type",
       "size",
@@ -50,6 +49,10 @@ describe("which columns edit", () => {
   it("leaves the key alone: it is permanent, and it is in URLs", () => {
     expect(editors().get("key")).toBeUndefined();
     expect(editors().get("updated")).toBeUndefined();
+  });
+
+  it("leaves the title alone: in the table it is the link to the task view", () => {
+    expect(editors().get("title")).toBeUndefined();
   });
 });
 
@@ -102,7 +105,8 @@ describe("enum-like columns take a menu", () => {
 
 describe("everything else takes a text input", () => {
   it("writes the title trimmed, and lets the service refuse an empty one", () => {
-    const spec = editor("title");
+    // TITLE is the task view's heading editor, not a table column (docs/07).
+    const spec = TITLE;
     expect(spec.kind).toBe("text");
     expect(spec.read(makeTask({ title: "Cursor pagination" }))).toBe("Cursor pagination");
     expect(spec.patch("  Cursor pagination  ")).toEqual({ title: "Cursor pagination" });
@@ -159,13 +163,13 @@ describe("a write that changes nothing", () => {
   const task = makeTask({ title: "Cursor pagination", fields: { areas: ["api", "ui"] } });
 
   it("is not a write", () => {
-    expect(isNoop(editor("title"), task, "Cursor pagination")).toBe(true);
-    expect(isNoop(editor("title"), task, "  Cursor pagination ")).toBe(true);
+    expect(isNoop(TITLE, task, "Cursor pagination")).toBe(true);
+    expect(isNoop(TITLE, task, "  Cursor pagination ")).toBe(true);
     expect(isNoop(editor("field.areas"), task, "api,  ui")).toBe(true);
   });
 
   it("does not swallow a real change", () => {
-    expect(isNoop(editor("title"), task, "Cursor pagination v2")).toBe(false);
+    expect(isNoop(TITLE, task, "Cursor pagination v2")).toBe(false);
     expect(isNoop(editor("field.areas"), task, "api")).toBe(false);
   });
 });

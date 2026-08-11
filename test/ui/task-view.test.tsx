@@ -438,3 +438,57 @@ describe("editing a property", () => {
     expect(screen.getByRole("textbox", { name: "Assignee of FEAT-3" })).toBeTruthy();
   });
 });
+
+describe("renaming from the heading", () => {
+  // The rename lives here and only here: in the table the title is the link
+  // that opens this screen (docs/07 "The task view").
+  const heading = () => document.querySelector<HTMLElement>("h1[data-edit='title'], h1")!;
+
+  it("edits the title in place: click, type, Enter", async () => {
+    const { api, tasks, user } = mount();
+    await view();
+
+    await user.click(heading());
+    const input = screen.getByRole("textbox", { name: "Title of FEAT-3" });
+    expect((input as HTMLInputElement).value).toBe("Per-project field schema validation");
+
+    await user.clear(input);
+    await user.type(input, "Schema validation, cached per project{Enter}");
+
+    await waitFor(() => expect(api.writes).toHaveLength(1));
+    expect(api.writes[0]!.path).toBe("/api/projects/paim/tasks/FEAT-3");
+    expect(api.writes[0]!.body).toEqual({ title: "Schema validation, cached per project" });
+    expect(tasks[0]!.title).toBe("Schema validation, cached per project");
+    await waitFor(() =>
+      expect(heading().textContent).toContain("Schema validation, cached per project"),
+    );
+    expect(screen.queryByRole("textbox", { name: "Title of FEAT-3" })).toBeNull();
+  });
+
+  it("cancels on Esc, and flashes the heading when the service refuses", async () => {
+    const { api, user } = mount({
+      rejectWrites: { status: 422, code: "TITLE_REQUIRED" },
+    });
+    await view();
+
+    await user.click(heading());
+    await user.type(
+      screen.getByRole("textbox", { name: "Title of FEAT-3" }),
+      "thrown away{Escape}",
+    );
+    expect(api.writes).toHaveLength(0);
+    expect(heading().textContent).toContain("Per-project field schema validation");
+
+    await user.click(heading());
+    const input = screen.getByRole("textbox", { name: "Title of FEAT-3" });
+    await user.clear(input);
+    await user.type(input, "Refused{Enter}");
+
+    await waitFor(() => expect(heading().dataset["rejected"]).toBe("true"));
+    // The value on screen is back to what the service holds.
+    expect(heading().textContent).toContain("Per-project field schema validation");
+    await waitFor(() => expect(heading().dataset["rejected"]).toBeUndefined(), {
+      timeout: 3_000,
+    });
+  });
+});

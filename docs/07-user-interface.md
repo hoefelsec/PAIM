@@ -109,6 +109,12 @@ Two scales use different shapes:
 **Type** is not a scale. Each pool option has a different silhouette. See
 [03 — Custom fields](03-custom-fields.md).
 
+### The title opens the task
+
+The title cell is a link to the task view. It is not an in-place editor. The
+user renames a task on the heading of the task view. One row therefore has
+one navigation target: its line of text.
+
 ### Epics in the table
 
 An epic row has a triangle control and the count `3/7 done`. The children appear
@@ -247,7 +253,9 @@ The dock collapses to one row of about 30 pixels.
 ## Editing
 
 - **Edit in place.** Click a value, change it, and click outside to save. There
-  are no modal forms and no Save control.
+  are no modal forms and no Save control. The title in the table is the one
+  exception: a click on it opens the task view, and the rename is on the task
+  view's heading.
 - **Optimistic update.** The interface shows the change at once. It reconciles
   with the response. A rejected write makes the row flash and then returns to
   the previous value.

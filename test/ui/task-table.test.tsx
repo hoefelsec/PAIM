@@ -168,6 +168,26 @@ describe("rows", () => {
     mount([]);
     expect(await screen.findByText("No tasks in this project yet.")).toBeTruthy();
   });
+
+  it("makes the title the link to the task view, not an editor", async () => {
+    const user = userEvent.setup();
+    mount();
+    await waitFor(() => expect(rowFor("FEAT-4")).toBeTruthy());
+
+    // The title cell is navigation: no in-place editor lives on it.
+    const cell = rowFor("FEAT-4")!.cells[1]!;
+    expect(cell.dataset["edit"]).toBeUndefined();
+
+    const link = within(cell).getByRole("link", {
+      name: "Table view: grouping, inline edit, column resize",
+    });
+    expect(link.getAttribute("href")).toBe("/p/paim/t/FEAT-4");
+
+    // A plain click opens the task view in place (docs/07 "The task view").
+    await user.click(link);
+    expect(window.location.pathname).toBe("/p/paim/t/FEAT-4");
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
 });
 
 describe("group rows", () => {

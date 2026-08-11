@@ -5,6 +5,10 @@
  * once. It reconciles with the response. A rejected write makes the row flash
  * and then returns to the previous value."
  *
+ * The title is not an inline edit: a click on it opens the task view, and the
+ * rename lives there (test/ui/task-view.test.tsx). The text-input flows here
+ * run through a text custom field instead.
+ *
  * The fake service in ./harness applies a write the way
  * src/server/routes/tasks.ts does, `If-Match` included, so a conflict here is
  * the conflict of docs/06 and not a mock of one.
@@ -24,6 +28,7 @@ const PAIM = makeProject({
     { key: "type", type: "select", options: ["feature", "bug", "chore"] },
     { key: "layer", type: "select", options: ["api", "ui"], showInTable: true, label: "Layer" },
     { key: "points", type: "number", showInTable: true, order: 2 },
+    { key: "team", type: "text", showInTable: true, order: 3, label: "Team" },
   ],
 });
 
@@ -36,7 +41,7 @@ function seed(): TaskView[] {
       status: "executing",
       priority: "low",
       size: "M",
-      fields: { type: "feature", layer: "ui", points: 3 },
+      fields: { type: "feature", layer: "ui", points: 3, team: "core" },
       updatedAt: "2026-01-01T10:00:00.000Z",
     }),
     makeTask({
@@ -46,7 +51,7 @@ function seed(): TaskView[] {
       status: "executing",
       priority: "urgent",
       size: "L",
-      fields: { type: "feature", layer: "api" },
+      fields: { type: "feature", layer: "api", team: "infra" },
       updatedAt: "2026-01-01T09:00:00.000Z",
     }),
   ];
@@ -98,10 +103,10 @@ describe("opening a cell", () => {
     const { user } = mount();
     await row();
 
-    await open(user, "FEAT-4", "title");
+    await open(user, "FEAT-4", "field.team");
 
-    const input = screen.getByRole("textbox", { name: "Title of FEAT-4" });
-    expect((input as HTMLInputElement).value).toBe("Table view");
+    const input = screen.getByRole("textbox", { name: "Team of FEAT-4" });
+    expect((input as HTMLInputElement).value).toBe("core");
     expect(document.activeElement).toBe(input);
     // In the cell, in the row — not a form on top of the table (docs/07).
     expect(rowFor("FEAT-4")!.contains(input)).toBe(true);
@@ -128,17 +133,26 @@ describe("opening a cell", () => {
     ]);
   });
 
-  it("does not open the key or the timestamp", async () => {
+  it("does not open the key, the title or the timestamp", async () => {
     const { user } = mount();
     const target = await row();
 
     const editable = [...target.cells]
       .map((td) => td.dataset["edit"])
       .filter((id) => id !== undefined);
-    expect(editable).toEqual(["title", "priority", "type", "size", "field.layer", "field.points"]);
+    expect(editable).toEqual([
+      "priority",
+      "type",
+      "size",
+      "field.layer",
+      "field.points",
+      "field.team",
+    ]);
 
-    // A key is permanent and `updatedAt` is the service's own record.
+    // A key is permanent, `updatedAt` is the service's own record, and the
+    // title is the link to the task view — not an editor.
     expect(target.cells[0]!.dataset["edit"]).toBeUndefined();
+    expect(target.cells[1]!.dataset["edit"]).toBeUndefined();
     expect(target.cells[target.cells.length - 1]!.dataset["edit"]).toBeUndefined();
     await user.click(target.cells[0]!);
     await user.click(target.cells[target.cells.length - 1]!);
@@ -166,11 +180,11 @@ describe("opening a cell", () => {
     const { user } = mount();
     await row();
 
-    await open(user, "FEAT-4", "title");
-    await open(user, "FEAT-3", "title");
+    await open(user, "FEAT-4", "field.team");
+    await open(user, "FEAT-3", "field.team");
 
-    expect(screen.queryByRole("textbox", { name: "Title of FEAT-4" })).toBeNull();
-    expect(screen.getByRole("textbox", { name: "Title of FEAT-3" })).toBeTruthy();
+    expect(screen.queryByRole("textbox", { name: "Team of FEAT-4" })).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Team of FEAT-3" })).toBeTruthy();
   });
 });
 
@@ -179,31 +193,31 @@ describe("saving", () => {
     const { api, user } = mount();
     await row();
 
-    await open(user, "FEAT-4", "title");
-    await user.clear(screen.getByRole("textbox", { name: "Title of FEAT-4" }));
-    await user.type(screen.getByRole("textbox", { name: "Title of FEAT-4" }), "Table view v2{Enter}");
+    await open(user, "FEAT-4", "field.team");
+    await user.clear(screen.getByRole("textbox", { name: "Team of FEAT-4" }));
+    await user.type(screen.getByRole("textbox", { name: "Team of FEAT-4" }), "platform{Enter}");
 
     await waitFor(() => expect(api.writes).toHaveLength(1));
     expect(api.writes[0]!.path).toBe("/api/projects/paim/tasks/FEAT-4");
     expect(api.writes[0]!.method).toBe("PATCH");
-    expect(api.writes[0]!.body).toEqual({ title: "Table view v2" });
+    expect(api.writes[0]!.body).toEqual({ fields: { team: "platform" } });
     // The editor is gone and the value is on the row.
-    expect(screen.queryByRole("textbox", { name: "Title of FEAT-4" })).toBeNull();
-    expect((await row()).textContent).toContain("Table view v2");
+    expect(screen.queryByRole("textbox", { name: "Team of FEAT-4" })).toBeNull();
+    expect((await row()).textContent).toContain("platform");
   });
 
   it("saves on blur — clicking outside is the save (docs/07)", async () => {
     const { api, user } = mount();
     await row();
 
-    await open(user, "FEAT-4", "title");
-    await user.clear(screen.getByRole("textbox", { name: "Title of FEAT-4" }));
-    await user.type(screen.getByRole("textbox", { name: "Title of FEAT-4" }), "Saved by blur");
+    await open(user, "FEAT-4", "field.team");
+    await user.clear(screen.getByRole("textbox", { name: "Team of FEAT-4" }));
+    await user.type(screen.getByRole("textbox", { name: "Team of FEAT-4" }), "saved-by-blur");
     await user.click(screen.getByRole("columnheader", { name: "Key" }));
 
     await waitFor(() => expect(api.writes).toHaveLength(1));
-    expect(api.writes[0]!.body).toEqual({ title: "Saved by blur" });
-    expect((await row()).textContent).toContain("Saved by blur");
+    expect(api.writes[0]!.body).toEqual({ fields: { team: "saved-by-blur" } });
+    expect((await row()).textContent).toContain("saved-by-blur");
   });
 
   it("saves a menu choice as soon as it is made", async () => {
@@ -265,26 +279,26 @@ describe("saving", () => {
     const { api, user, tasks } = mount();
     await row();
 
-    await open(user, "FEAT-4", "title");
-    await user.clear(screen.getByRole("textbox", { name: "Title of FEAT-4" }));
-    await user.type(screen.getByRole("textbox", { name: "Title of FEAT-4" }), "Table view v2{Enter}");
+    await open(user, "FEAT-4", "field.team");
+    await user.clear(screen.getByRole("textbox", { name: "Team of FEAT-4" }));
+    await user.type(screen.getByRole("textbox", { name: "Team of FEAT-4" }), "platform{Enter}");
 
     await waitFor(() => expect(api.writes).toHaveLength(1));
     expect(api.writes[0]!.ifMatch).toBe("2026-01-01T10:00:00.000Z");
-    await waitFor(() => expect(rowFor("FEAT-4")!.textContent).toContain("Table view v2"));
+    await waitFor(() => expect(rowFor("FEAT-4")!.textContent).toContain("platform"));
 
     // Reconciled with the answer: the second edit carries the timestamp the
     // service stamped on the first, so it is not a conflict with itself.
     const stamped = tasks[0]!.updatedAt;
     expect(stamped).not.toBe("2026-01-01T10:00:00.000Z");
 
-    await open(user, "FEAT-4", "title");
-    await user.clear(screen.getByRole("textbox", { name: "Title of FEAT-4" }));
-    await user.type(screen.getByRole("textbox", { name: "Title of FEAT-4" }), "Table view v3{Enter}");
+    await open(user, "FEAT-4", "field.team");
+    await user.clear(screen.getByRole("textbox", { name: "Team of FEAT-4" }));
+    await user.type(screen.getByRole("textbox", { name: "Team of FEAT-4" }), "platform-2{Enter}");
 
     await waitFor(() => expect(api.writes).toHaveLength(2));
     expect(api.writes[1]!.ifMatch).toBe(stamped);
-    await waitFor(() => expect(rowFor("FEAT-4")!.textContent).toContain("Table view v3"));
+    await waitFor(() => expect(rowFor("FEAT-4")!.textContent).toContain("platform-2"));
     expect(rowFor("FEAT-4")!.dataset["rejected"]).toBeUndefined();
   });
 
@@ -303,23 +317,23 @@ describe("saving", () => {
       return original(input, init);
     });
 
-    await open(user, "FEAT-4", "title");
-    await user.clear(screen.getByRole("textbox", { name: "Title of FEAT-4" }));
-    await user.type(screen.getByRole("textbox", { name: "Title of FEAT-4" }), "Optimistic{Enter}");
+    await open(user, "FEAT-4", "field.team");
+    await user.clear(screen.getByRole("textbox", { name: "Team of FEAT-4" }));
+    await user.type(screen.getByRole("textbox", { name: "Team of FEAT-4" }), "optimistic{Enter}");
 
     await waitFor(() => expect(answered).toHaveBeenCalled());
-    expect((await row()).textContent).toContain("Optimistic");
+    expect((await row()).textContent).toContain("optimistic");
   });
 
   it("does not write when nothing changed", async () => {
     const { api, user } = mount();
     await row();
 
-    await open(user, "FEAT-4", "title");
+    await open(user, "FEAT-4", "field.team");
     await user.click(screen.getByRole("columnheader", { name: "Key" }));
 
     expect(api.writes).toHaveLength(0);
-    expect((await row()).textContent).toContain("Table view");
+    expect((await row()).textContent).toContain("core");
   });
 });
 
@@ -328,15 +342,15 @@ describe("cancelling", () => {
     const { api, user } = mount();
     await row();
 
-    await open(user, "FEAT-4", "title");
-    await user.clear(screen.getByRole("textbox", { name: "Title of FEAT-4" }));
-    await user.type(screen.getByRole("textbox", { name: "Title of FEAT-4" }), "Thrown away{Escape}");
+    await open(user, "FEAT-4", "field.team");
+    await user.clear(screen.getByRole("textbox", { name: "Team of FEAT-4" }));
+    await user.type(screen.getByRole("textbox", { name: "Team of FEAT-4" }), "thrown-away{Escape}");
 
-    expect(screen.queryByRole("textbox", { name: "Title of FEAT-4" })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Team of FEAT-4" })).toBeNull();
     expect(api.writes).toHaveLength(0);
     const cell = await row();
-    expect(cell.textContent).toContain("Table view");
-    expect(cell.textContent).not.toContain("Thrown away");
+    expect(cell.textContent).toContain("core");
+    expect(cell.textContent).not.toContain("thrown-away");
   });
 
   it("cancels a menu on Esc without choosing", async () => {
@@ -359,9 +373,9 @@ describe("a refused write", () => {
     });
     await row();
 
-    await open(user, "FEAT-4", "title");
-    await user.clear(screen.getByRole("textbox", { name: "Title of FEAT-4" }));
-    await user.type(screen.getByRole("textbox", { name: "Title of FEAT-4" }), "Refused{Enter}");
+    await open(user, "FEAT-4", "field.team");
+    await user.clear(screen.getByRole("textbox", { name: "Team of FEAT-4" }));
+    await user.type(screen.getByRole("textbox", { name: "Team of FEAT-4" }), "refused{Enter}");
 
     // The flash is clay (docs/13 "Motion"), and it is on the row that failed.
     await waitFor(() => expect(rowFor("FEAT-4")!.dataset["rejected"]).toBe("true"));
@@ -369,8 +383,8 @@ describe("a refused write", () => {
     expect(rowFor("FEAT-3")!.dataset["rejected"]).toBeUndefined();
 
     // And the row is back to what the service holds.
-    expect(rowFor("FEAT-4")!.textContent).toContain("Table view");
-    expect(rowFor("FEAT-4")!.textContent).not.toContain("Refused");
+    expect(rowFor("FEAT-4")!.textContent).toContain("core");
+    expect(rowFor("FEAT-4")!.textContent).not.toContain("refused");
     expect(api.writes).toHaveLength(1);
 
     // Then it returns: a flash, not a state the row stays in.
@@ -399,19 +413,19 @@ describe("a refused write", () => {
 
     // Another program writes the same task while the row sits on screen —
     // docs/07: "Other programs write to the same store."
-    tasks[0]!.title = "Written by someone else";
+    tasks[0]!.fields = { ...tasks[0]!.fields, team: "written-by-someone-else" };
     tasks[0]!.updatedAt = "2026-01-01T11:00:00.000Z";
 
-    await open(user, "FEAT-4", "title");
-    await user.clear(screen.getByRole("textbox", { name: "Title of FEAT-4" }));
-    await user.type(screen.getByRole("textbox", { name: "Title of FEAT-4" }), "Stale edit{Enter}");
+    await open(user, "FEAT-4", "field.team");
+    await user.clear(screen.getByRole("textbox", { name: "Team of FEAT-4" }));
+    await user.type(screen.getByRole("textbox", { name: "Team of FEAT-4" }), "stale-edit{Enter}");
 
     await waitFor(() => expect(rowFor("FEAT-4")!.dataset["rejected"]).toBe("true"));
     // The write was a compare-and-swap on the version the user saw.
     expect(api.writes[0]!.ifMatch).toBe("2026-01-01T10:00:00.000Z");
     // The other write stands: this one changed nothing.
-    expect(tasks[0]!.title).toBe("Written by someone else");
-    expect(rowFor("FEAT-4")!.textContent).not.toContain("Stale edit");
-    expect(rowFor("FEAT-4")!.textContent).toContain("Table view");
+    expect(tasks[0]!.fields["team"]).toBe("written-by-someone-else");
+    expect(rowFor("FEAT-4")!.textContent).not.toContain("stale-edit");
+    expect(rowFor("FEAT-4")!.textContent).toContain("core");
   });
 });
