@@ -6,8 +6,8 @@ A project holds tasks. The slug identifies the project in all API paths.
 
 ```
 id             uuid
-slug           "paim"      unique, in URLs, permanent after creation
-name           "PAIM"      shown to the user, editable
+slug           "forge"     unique, in URLs, permanent after creation
+name           "Forge"     shown to the user, editable
 description    text, markdown
 icon           one emoji or one icon name
 color          one of 8 identity colours (see 13)

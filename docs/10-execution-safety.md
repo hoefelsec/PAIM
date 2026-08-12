@@ -178,7 +178,7 @@ that corrupts files.
 Two projects with different workspace paths write to different trees. They run
 at the same time without conflict.
 
-Therefore the dock can show PAIM, Homelab, and RCX Briefings all
+Therefore the dock can show Forge, Homelab, and RCX Briefings all
 running. The service enforces the limit for each project.
 
 If two projects use the same root, set a lower limit on one of them, or combine

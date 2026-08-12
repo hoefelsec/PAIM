@@ -4,7 +4,7 @@
 
 ```
 /                          The project grid. All active projects.
-/p/:project                The task table for one workspace.
+/p/:project                The task board for one workspace.
 /p/:project?status=…       Filter state. It is in the URL and it is temporary.
 /p/:project/v/:view        A saved view.
 /p/:project/new            The AI composer.
@@ -22,7 +22,7 @@ workspace. One URL always answers "which projects exist?".
 ## One workspace at a time
 
 A project is a workspace. The user selects one project. That selection scopes
-the whole interface: the table, the filters, and the keyboard shortcuts.
+the whole interface: the board, the filters, and the keyboard shortcuts.
 
 The user changes the workspace from the switcher in the top-left corner. The
 switcher shows the project icon, the project name, and the count of open tasks.
@@ -37,16 +37,16 @@ The switcher menu contains:
 
 ```
 ┌──────────────┬──────────────────────────────────────────────┐
-│ ◈ PAIM     ⌄ │ v0.4.2 · 28 · 17 open   5h ▓▓▒ Wk ▓▓▓▒ F ▓  │ stats band
+│ ✦ Forge    ⌄ │ v0.4.2 · 28 · 17 open   5h ▓▓▒ Wk ▓▓▓▒ F ▓  │ stats band
 │   17 open    ├──────────────────────────────────────────────┤
 ├──────────────┤ Open work ⌄ │ 8 of 28 · Sort · Group · Save  │ toolbar
 │ ▤ Docs    12 ├──────────────────────────────────────────────┤
-├──────────────┤ KEY  TITLE            PRIO TYPE SIZE          │
-│ ⌕ Search   / │ ▾ Executing 3                                 │
-│ ▾ STATUS     │ FEAT-4  Table view…    ▮▮  ☆   ●●●○○          │
-│   ☑ Ready  5 │ BUG-3   Field schema…  ▮▮  ☆   ●●●●○          │
-│ ▾ TYPE       │                                               │
-│ Clear all  2 │                                               │
+├──────────────┤ READY 5      EXECUTING 3     TESTING 1       │
+│ ⌕ Search   / │ ┌──────────┐ ┌───────────┐  ┌───────────┐   │
+│ Status: all  │ │ FEAT-4   │ │ BUG-3   ✦ │  │ FEAT-7    │   │
+│ Prio: 2 sel  │ │ Board…   │ │ Schema…   │  │ Editor…   │   │
+│ Type: all    │ └──────────┘ │ ▂▂▂ 62%   │  └───────────┘   │
+│ Clear all  2 │ ┌──────────┐ └───────────┘                  │
 ├──────────────┴──────────────────────────────────────────────┤
 │ ▴ Activity   4 running · 1 needs you · 1 held · 2 queued    │ dock
 └─────────────────────────────────────────────────────────────┘
@@ -59,10 +59,10 @@ The rail holds different content on different screens. The rail always answers
 
 | Screen | Content of the rail |
 |---|---|
-| Task table | Filter facets |
+| Task board | Filter facets |
 | Project documents | The file tree of `docs/` |
 | Project settings | The list of settings sections |
-| Composer, task view | A link back to the task list |
+| Composer, task view | A link back to the board |
 | Project grid | No rail. The grid uses the full width. |
 
 ### Filter facets
@@ -72,7 +72,12 @@ The service builds the facets from the project's schema. Core facets are
 `select` fields with `showAsFacet`. See
 [03 — Custom fields](03-custom-fields.md).
 
-Each facet head shows its source: `core`, `pipeline`, or `schema`.
+Each facet is **one `label: value` line**. The value opens a checkbox menu
+with live counts. One pick reads as that value. Several read as `n selected`.
+A footer counts the active filters and clears them all. One line per
+dimension keeps the rail scannable at any option count.
+
+Each facet menu names its source: `core`, `pipeline`, or `schema`.
 
 ### The rule for filters and presentation
 
@@ -81,46 +86,37 @@ Each facet head shows its source: `core`, `pipeline`, or `schema`.
 
 No control appears in both places.
 
-## The table
+## The board
 
-The table is the only view. There is no board and no list view.
+The board is the only view. A view switcher with a single option is chrome,
+so there is no switcher.
 
-- Rows are 33 pixels high. There is one density.
-- The table is the default view because field sets differ per project. A table
-  shows custom values side by side.
+- One column for each status the group dimension selects. The default group
+  is `status`, so the columns are the pipeline in order.
+- Each column head names the status, in its status colour, with a live count.
+- A task is a **card**: key, title, priority glyph, type glyph, size, labels,
+  and — when a run is active — the agent indicator with its progress. Cards
+  keep the values that fit; the task view holds the rest.
+- The `showInTable` switch of a field ([03](03-custom-fields.md)) now means
+  "on the card".
 
-### Columns
+### Glyphs instead of text
 
-`Key`, `Title`, `Prio`, `Type`, `Size`, `Updated`. Custom fields with
-`showInTable` add columns.
+`priority`, `type`, and status glyphs come from the Lucide set through the
+`Icon` component. See [13 — Design language](13-design-language.md). The name
+appears when the pointer is over the glyph. `size` is text in monospace;
+`Epic` is a pill.
 
-### Icons instead of text
+### The card opens the task
 
-`priority`, `type`, and `size` are icons. The name appears when the
-pointer is over the icon. The column head names the dimension, so the row does
-not repeat it.
+A click on a card opens the task view. The card is not an in-place editor:
+values are edited in the task view. The user renames a task on the heading of
+the task view.
 
-Two scales use different shapes:
+### Epics on the board
 
-- **Priority** grows in bar **height**.
-- **Size** fills in dot **count**. Empty steps are rings. Filled steps are
-  discs. `Epic` has its own mark.
-
-**Type** is not a scale. Each pool option has a different silhouette. See
-[03 — Custom fields](03-custom-fields.md).
-
-### The title opens the task
-
-The title cell is a link to the task view. It is not an in-place editor. The
-user renames a task on the heading of the task view. One row therefore has
-one navigation target: its line of text.
-
-### Epics in the table
-
-An epic row has a triangle control and the count `3/7 done`. The children appear
-as indented rows under the epic. They use the same columns.
-
-To expand an epic changes the view state. It is not navigation.
+An epic is a card with the progress count `3/7 done`. Its children are normal
+cards in their own status columns. The epic's task view lists the children.
 
 ## The stats band
 
@@ -172,26 +168,29 @@ a later task comes first. This order prevents duplicate work.
 
 - The order is a snapshot. The service computes it when the user asks.
 - When the task set changes, the sort control shows that the order is old. The
-  service does not reorder the table without a command.
+  service does not reorder the board without a command.
 - Each position has one line of reason. The user can read why a task is at that
   position.
 - Suggested order sorts. It does not filter and it does not hide.
 
 ## The task view
 
-The task view is a full screen with tabs. It is not a panel.
+The task view is a full screen with tabs. It is not a panel. `Esc` returns to
+the board.
 
 ```
 Overview · Questions · Design · Run · Tests · Review
 ```
 
-The tab order is the pipeline order. Therefore the tab row also shows progress.
+The tab order is the pipeline order. Therefore the tab row also shows
+progress. The tab that matches the task's current stage is highlighted in
+ember and selected on open. A stage the task has not reached is disabled.
 
 A tab appears only when the project's pipeline includes that stage. A project
 without `testing` has no Tests tab.
 
-The right column holds the properties: status, priority, size, type, custom
-fields, model, dependencies, and schedule.
+The right column (360 pixels) holds the properties: status, priority, size,
+type, custom fields, model, dependencies, and schedule.
 
 The **Review** tab has three sub-tabs:
 
@@ -206,8 +205,8 @@ order". Code review answers "what is the state of the files now".
 
 ## Selection and bulk actions
 
-The user selects rows with the checkbox in the first column. A bar appears above
-the dock. The bar disappears on `Esc`.
+The user selects cards with a modified click. A bar appears above the dock.
+The bar disappears on `Esc`.
 
 The bar has three actions:
 
@@ -252,10 +251,10 @@ The dock collapses to one row of about 30 pixels.
 
 ## Editing
 
-- **Edit in place.** Click a value, change it, and click outside to save. There
-  are no modal forms and no Save control. The title in the table is the one
-  exception: a click on it opens the task view, and the rename is on the task
-  view's heading.
+- **Edit in place.** In the task view, click a value, change it, and click
+  outside to save. There are no modal forms and no Save control. The rename is
+  on the task view's heading. A card on the board is not an editor: a click on
+  it opens the task view.
 - **Optimistic update.** The interface shows the change at once. It reconciles
   with the response. A rejected write makes the row flash and then returns to
   the previous value.

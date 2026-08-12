@@ -1,0 +1,29 @@
+/* Forge spacing — 4px base. Dense by default; generous only at page edges. */
+:root{
+  --space-0:0px;
+  --space-1:2px;
+  --space-2:4px;
+  --space-3:6px;
+  --space-4:8px;
+  --space-5:12px;
+  --space-6:16px;
+  --space-7:20px;
+  --space-8:24px;
+  --space-9:32px;
+  --space-10:40px;
+  --space-11:56px;
+  --space-12:72px;
+  --space-13:96px;
+  --space-14:128px;
+
+  --gutter-page:24px;
+  --gutter-section:72px;
+  --row-height:34px;
+  --control-height-sm:26px;
+  --control-height-md:32px;
+  --control-height-lg:38px;
+  --sidebar-width:236px;
+  --panel-width:360px;
+  --content-max:1160px;
+  --prose-max:66ch;
+}

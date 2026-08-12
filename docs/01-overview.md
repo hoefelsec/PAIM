@@ -2,7 +2,7 @@
 
 ## Purpose
 
-PAIM is the Project AI Manager. It holds and executes the work of one person
+Forge holds and executes the work of one person
 across many projects. It runs on one machine. One process serves the REST API,
 the HTML interface, and the event streams on one port.
 
@@ -58,7 +58,7 @@ The service does not do these things:
 - Run on a public network. It runs on `localhost`.
 - Track time, story points, sprints, or costs for invoices.
 - Send email or chat messages.
-- Show a board view, a list view, or a calendar. The table is the only view.
+- Show a table view, a list view, or a calendar. The board is the only view.
 - Import data from Jira or ClickUp.
 
 ## Related documents

@@ -1,0 +1,161 @@
+/* Forge color system.
+   DARK BY DEFAULT — the product is a dark instrument; `[data-theme="light"]`
+   exists for the marketing site, print and specimen work.
+   Neutrals carry the product; one vibrant accent (Ember) marks execution + AI activity. */
+:root{
+  /* ---- Base: neutrals (warm graphite) ---- */
+  --gray-0:#FFFFFF;
+  --gray-25:#FBFBFA;
+  --gray-50:#F6F6F4;
+  --gray-100:#EFEFEC;
+  --gray-200:#E4E4E0;
+  --gray-300:#D3D3CE;
+  --gray-400:#A9A9A3;
+  --gray-500:#7A756E;
+  --gray-600:#55514C;
+  --gray-700:#3A3835;
+  --gray-800:#2A2927;
+  --gray-850:#222120;
+  --gray-900:#1A1918;
+  --gray-950:#131211;
+  --gray-1000:#0D0C0B;
+
+  /* ---- Base: accent (Ember) ---- */
+  --ember-50:#FFF4EE;
+  --ember-100:#FFE3D5;
+  --ember-200:#FFC5AA;
+  --ember-300:#FF9D72;
+  --ember-400:#FF7440;
+  --ember-500:#F4511E;
+  --ember-600:#D33F10;
+  --ember-700:#A5300B;
+  --ember-800:#7A2508;
+
+  /* ---- Base: semantics ---- */
+  --green-100:#D6F2E4;--green-300:#6FC7A2;--green-500:#0F9E6E;--green-600:#0B7C56;
+  --amber-100:#FBEECC;--amber-300:#E0B252;--amber-500:#C98A05;--amber-600:#9E6D04;
+  --red-100:#FBDFDA;  --red-300:#E28679;  --red-500:#D8442F;  --red-600:#AE3323;
+  --blue-100:#DCE8FA; --blue-300:#7FAAE6; --blue-500:#3B7BD9; --blue-600:#2C5FAC;
+  --violet-100:#E6E1FA;--violet-300:#A99BE8;--violet-500:#6C5BD4;--violet-600:#54459F;
+
+  /* ---- Semantic: surfaces (dark ground, four steps) ---- */
+  --surface-page:var(--gray-950);
+  --surface-card:var(--gray-900);
+  --surface-sunken:var(--gray-1000);
+  --surface-raised:var(--gray-850);
+  --surface-overlay-bg:#292826;
+  --surface-inverse:var(--gray-25);
+  --surface-hover:rgba(255,255,255,.045);
+  --surface-active:rgba(255,255,255,.085);
+  --surface-selected:rgba(244,81,30,.13);
+  --surface-overlay:rgba(10,9,8,.58);
+
+  /* ---- Semantic: text ---- */
+  --text-primary:#EAE7E1;
+  --text-body:#C3BEB6;
+  --text-secondary:#9C978F;
+  --text-tertiary:#7A756E;
+  --text-disabled:#55514C;
+  --text-inverse:var(--gray-950);
+  --text-accent:var(--ember-400);
+  --text-link:var(--ember-400);
+  --text-link-hover:var(--ember-300);
+
+  /* ---- Semantic: borders ---- */
+  --border-subtle:#2A2927;
+  --border-default:#33312E;
+  --border-strong:#3A3835;
+  --border-accent:var(--ember-500);
+  --border-focus:var(--ember-400);
+  --focus-ring:0 0 0 3px rgba(244,81,30,.34);
+
+  /* ---- Semantic: accent surfaces ---- */
+  --accent-solid:var(--ember-500);
+  --accent-solid-hover:var(--ember-400);
+  --accent-solid-active:var(--ember-600);
+  --accent-soft:rgba(244,81,30,.13);
+  --accent-soft-border:rgba(244,81,30,.32);
+  --accent-on-solid:#FFF6F2;
+
+  /* ---- Semantic: status (task lifecycle) — ten states, never remapped ---- */
+  --status-open-questions:var(--amber-300);
+  --status-design:var(--violet-300);
+  --status-ready:#9AA3AE;
+  --status-running:var(--ember-500);
+  --status-testing:var(--ember-300);
+  --status-reviewing:var(--blue-300);
+  --status-paused:var(--amber-500);
+  --status-failed:var(--red-300);
+  --status-canceled:var(--gray-600);
+  --status-done:var(--green-300);
+
+  /* ---- Semantic: feedback ---- */
+  --success-fg:var(--green-300);--success-bg:rgba(15,158,110,.16);--success-solid:var(--green-500);
+  --warning-fg:var(--amber-300);--warning-bg:rgba(201,138,5,.16); --warning-solid:var(--amber-500);
+  --danger-fg:var(--red-300);   --danger-bg:rgba(216,68,47,.16);  --danger-solid:var(--red-500);
+  --info-fg:var(--blue-300);    --info-bg:rgba(59,123,217,.16);   --info-solid:var(--blue-500);
+
+  /* ---- Semantic: AI agent ---- */
+  --agent-fg:var(--ember-400);
+  --agent-bg:rgba(244,81,30,.13);
+  --agent-border:rgba(244,81,30,.32);
+  --agent-pulse:rgba(244,81,30,.4);
+  --log-surface:var(--gray-1000);
+  --log-text:#C3BEB6;
+  --log-dim:#7A756E;
+}
+
+[data-theme="light"]{
+  --surface-page:var(--gray-25);
+  --surface-card:var(--gray-0);
+  --surface-sunken:var(--gray-50);
+  --surface-raised:var(--gray-0);
+  --surface-overlay-bg:var(--gray-0);
+  --surface-inverse:var(--gray-950);
+  --surface-hover:rgba(19,18,17,.04);
+  --surface-active:rgba(19,18,17,.07);
+  --surface-selected:var(--ember-50);
+  --surface-overlay:rgba(19,18,17,.42);
+
+  --text-primary:var(--gray-950);
+  --text-body:#3A3835;
+  --text-secondary:#5A554F;
+  --text-tertiary:#7A756E;
+  --text-disabled:#A9A9A3;
+  --text-inverse:var(--gray-0);
+  --text-accent:var(--ember-600);
+  --text-link:var(--ember-600);
+  --text-link-hover:var(--ember-700);
+
+  --border-subtle:var(--gray-100);
+  --border-default:var(--gray-200);
+  --border-strong:var(--gray-300);
+  --border-focus:var(--ember-500);
+  --focus-ring:0 0 0 3px rgba(244,81,30,.22);
+
+  --accent-solid-hover:var(--ember-600);
+  --accent-solid-active:var(--ember-700);
+  --accent-soft:var(--ember-50);
+  --accent-soft-border:var(--ember-200);
+  --accent-on-solid:#FFFFFF;
+
+  --status-open-questions:var(--amber-500);
+  --status-design:var(--violet-500);
+  --status-ready:var(--gray-600);
+  --status-running:var(--ember-500);
+  --status-testing:var(--ember-300);
+  --status-reviewing:var(--blue-500);
+  --status-paused:var(--amber-600);
+  --status-failed:var(--red-500);
+  --status-canceled:var(--gray-400);
+  --status-done:var(--green-500);
+
+  --success-fg:var(--green-600);--success-bg:var(--green-100);
+  --warning-fg:var(--amber-600);--warning-bg:var(--amber-100);
+  --danger-fg:var(--red-600);   --danger-bg:var(--red-100);
+  --info-fg:var(--blue-600);    --info-bg:var(--blue-100);
+
+  --agent-fg:var(--ember-600);--agent-bg:var(--ember-50);--agent-border:var(--ember-200);
+  --agent-pulse:rgba(244,81,30,.35);
+  --log-surface:var(--gray-950);--log-text:#D7D7D2;
+}

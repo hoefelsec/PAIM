@@ -1,0 +1,8 @@
+/* Minimal element defaults so specimens and kits inherit the brand without a reset framework. */
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--surface-page);color:var(--text-body);font:var(--type-body);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+a{color:var(--text-link);text-decoration:none;transition:color var(--duration-fast) var(--ease-standard)}
+a:hover{color:var(--text-link-hover);text-decoration:underline;text-underline-offset:2px}
+code,kbd,pre,samp{font-family:var(--font-mono);font-size:.92em}
+::selection{background:rgba(244,81,30,.32);color:var(--text-primary)}
+:focus-visible{outline:none;box-shadow:var(--focus-ring)}

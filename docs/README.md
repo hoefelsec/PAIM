@@ -1,6 +1,6 @@
-# PAIM — specification index
+# Forge — specification index
 
-PAIM is the Project AI Manager. It is a local task service. It runs one process
+Forge is a local task service. It runs one process
 on `localhost`. It gives a REST API to other programs and an HTML interface to
 the user. It uses Claude to write tasks and to do the work in those tasks.
 
@@ -47,7 +47,7 @@ Use these terms. Do not use other terms for the same thing.
 
 | Term | Definition |
 |---|---|
-| **PAIM** | The name of this service. It is short for Project AI Manager. |
+| **Forge** | The name of this service. Tasks are not only tracked — they are executed. |
 | **project** | A container for tasks. It has a name, a slug, and settings. |
 | **workspace** | The project that the interface shows. The user selects one project at a time. |
 | **workspace path** | The directory on disk that a project controls. Runs and docs use only this directory. |
@@ -80,6 +80,6 @@ Use these terms. Do not use other terms for the same thing.
 | job, execution, session | run |
 | step, action, command | operation |
 | folder (for a project) | project or workspace |
-| board, list view, kanban | table (the table is the only view) |
+| table (for the main view), list view, kanban | board (the board is the only view) |
 | effort (for task size) | size |
 | reasoning (for the model parameter) | effort |

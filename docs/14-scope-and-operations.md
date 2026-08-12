@@ -13,7 +13,7 @@ The service must do all of this before release 1.
 
 **Interface**
 
-- The task table with the temporary filter rail and saved views.
+- The task board with the temporary filter rail and saved views.
 - The task view with tabs.
 - Icons for priority, type, and size.
 - The stats band with the three usage meters and their caps.
@@ -80,7 +80,7 @@ Automation rules. Webhooks. Task templates. Import from Jira or ClickUp.
 | Validation | Zod. The service builds one schema per project and caches it. |
 | AI — compose | `@anthropic-ai/sdk`. `messages.parse()` with `zodOutputFormat`. Model `claude-opus-5`. |
 | AI — run | `@anthropic-ai/claude-agent-sdk`. Built-in file and shell tools. The `canUseTool` callback is the approval control. |
-| Interface | React, Vite, and Tailwind. Radix, cmdk, and TanStack Query. |
+| Interface | React, Vite, and Tailwind. Radix, cmdk, and TanStack Query. Tokens, Geist fonts (vendored), and Lucide icons from the Forge design system (`design/forge/`). |
 
 The two Anthropic packages are different products.
 

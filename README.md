@@ -1,8 +1,13 @@
-# PAIM — Project AI Manager
+# Forge
 
-PAIM is a local task service. One process on `localhost` serves a REST API to
-other programs and an HTML interface to the user. It uses Claude to write tasks
-and to do the work in those tasks.
+Forge is a local task service where tasks are not only tracked — they are
+executed. One process on `localhost` serves a REST API to other programs and
+an HTML interface to the user. It uses Claude to write tasks and to do the
+work in those tasks.
+
+The visual identity is the Forge design system in
+[`design/forge/`](design/forge/readme.md): warm graphite, one ember accent,
+Geist type, Lucide icons.
 
 ## Specification
 
